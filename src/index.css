@@ -418,6 +418,91 @@ button {
   box-shadow: 0 0 0 3px rgba(255, 155, 38, 0.1);
 }
 
+/* ------------------------------ Search input ----------------------------- */
+
+.search-input {
+  position: relative;
+}
+
+.search-input svg {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+/* ------------------------------ Contacts table ---------------------------- */
+
+.contacts-table {
+  display: flex;
+  flex-direction: column;
+}
+
+.contacts-row {
+  display: grid;
+  grid-template-columns: 1.6fr 1.4fr 1.8fr 1.2fr 0.9fr;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--border);
+}
+
+.contacts-row:last-child {
+  border-bottom: none;
+}
+
+.contacts-row--head {
+  font-family: var(--font-heading);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.contact-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.contact-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--orange);
+  flex-shrink: 0;
+}
+
+.contacts-cell-muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .contacts-row {
+    grid-template-columns: 1.6fr 1.2fr 0.9fr;
+  }
+  .contacts-col-email,
+  .contacts-col-phone {
+    display: none;
+  }
+}
+
 /* ------------------------------ Status pills ----------------------------- */
 
 .status-pill {
