@@ -1,4 +1,5 @@
 import {
+  Activity,
   FileText,
   Share2,
   TrendingUp,
@@ -10,6 +11,13 @@ import {
 } from 'lucide-react'
 
 export const CONTACT_TABS = [
+  {
+    key: 'activities',
+    label: 'Activities',
+    icon: Activity,
+    emptyTitle: 'No activity yet',
+    emptyText: 'A timeline of calls, emails, and updates for this contact will appear here.',
+  },
   {
     key: 'case-notes',
     label: 'Case Notes',
