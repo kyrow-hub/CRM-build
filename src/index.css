@@ -611,6 +611,136 @@ textarea.input {
   font-family: var(--font-body);
 }
 
+/* -------------------------------- Kanban board ------------------------------ */
+
+.kanban-board {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.kanban-column {
+  flex: 0 0 268px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.kanban-column-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 2px 4px;
+}
+
+.kanban-column-title {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.kanban-column-count {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.kanban-column-total {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.kanban-column-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 90px;
+  padding: 6px;
+  border-radius: 14px;
+  border: 1px dashed transparent;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.kanban-column-body.drag-over {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+.deal-card {
+  cursor: grab;
+}
+
+.deal-card:active {
+  cursor: grabbing;
+}
+
+.deal-card-title {
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.deal-card-company {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+.deal-card-value {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--accent);
+}
+
+.deal-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.deal-card-date {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.deal-card-date svg {
+  width: 13px;
+  height: 13px;
+}
+
+.deal-card-owner {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 10.5px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.kanban-empty {
+  border: 1px dashed var(--border);
+  border-radius: 14px;
+  padding: 20px 12px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
 /* ---------------------------- Generic data table --------------------------- */
 
 .data-table {
