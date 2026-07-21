@@ -660,6 +660,14 @@ textarea.input {
   grid-template-columns: 1.5fr 1fr 0.9fr 2fr;
 }
 
+.partners-row {
+  grid-template-columns: 1.6fr 2fr 1.1fr 1.6fr 0.9fr;
+}
+
+.partner-contacts-row {
+  grid-template-columns: 1.4fr 1.2fr 1.6fr;
+}
+
 @media (max-width: 900px) {
   .attendance-row {
     grid-template-columns: 1.5fr 1fr 0.9fr;
@@ -691,6 +699,21 @@ textarea.input {
   }
   .goals-col-date,
   .goals-col-notes {
+    display: none;
+  }
+
+  .partners-row {
+    grid-template-columns: 1.6fr 1.1fr 0.9fr;
+  }
+  .partners-col-address,
+  .partners-col-email {
+    display: none;
+  }
+
+  .partner-contacts-row {
+    grid-template-columns: 1.4fr 1.2fr;
+  }
+  .partner-contacts-col-email {
     display: none;
   }
 }
