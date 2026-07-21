@@ -1,4 +1,4 @@
-export const mockContacts = [
+export const mockClients = [
   { id: 1, name: 'Ava Whitfield', initials: 'AW', company: 'Northwind Traders', email: 'ava.whitfield@northwind.io', phone: '(415) 555-0132', status: 'Customer' },
   { id: 2, name: 'Marcus Chen', initials: 'MC', company: 'Bluepeak Logistics', email: 'marcus.chen@bluepeak.com', phone: '(206) 555-0187', status: 'Lead' },
   { id: 3, name: 'Priya Nandakumar', initials: 'PN', company: 'Solace Health', email: 'priya.n@solacehealth.io', phone: '(312) 555-0164', status: 'Customer' },

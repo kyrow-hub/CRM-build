@@ -4,7 +4,7 @@ import { Search, Users } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import StatusPill from '../components/ui/StatusPill.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
-import { mockContacts } from '../data/mockContacts.js'
+import { mockClients } from '../data/mockClients.js'
 
 const STATUS_TONE = {
   Customer: 'success',
@@ -12,13 +12,13 @@ const STATUS_TONE = {
   Churned: 'danger',
 }
 
-export default function Contacts() {
+export default function Clients() {
   const [query, setQuery] = useState('')
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return mockContacts
-    return mockContacts.filter((c) =>
+    if (!q) return mockClients
+    return mockClients.filter((c) =>
       [c.name, c.company, c.email, c.status].some((field) => field.toLowerCase().includes(q)),
     )
   }, [query])
@@ -27,15 +27,15 @@ export default function Contacts() {
     <div className="fade-up">
       <div className="section-head">
         <div>
-          <div className="section-title">All Contacts</div>
-          <div className="section-subtitle">{mockContacts.length} total contacts</div>
+          <div className="section-title">All Clients</div>
+          <div className="section-subtitle">{mockClients.length} total clients</div>
         </div>
         <div className="search-input" style={{ width: 260 }}>
           <Search strokeWidth={2} />
           <input
             className="input"
             style={{ paddingLeft: 40 }}
-            placeholder="Search contacts..."
+            placeholder="Search clients..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -46,31 +46,31 @@ export default function Contacts() {
         {filtered.length === 0 ? (
           <EmptyState
             icon={Users}
-            title="No contacts found"
+            title="No clients found"
             text="Try a different name, company, or email."
           />
         ) : (
-          <div className="contacts-table">
-            <div className="contacts-row contacts-row--head">
+          <div className="clients-table">
+            <div className="clients-row clients-row--head">
               <span>Name</span>
               <span>Company</span>
-              <span className="contacts-col-email">Email</span>
-              <span className="contacts-col-phone">Phone</span>
+              <span className="clients-col-email">Email</span>
+              <span className="clients-col-phone">Phone</span>
               <span>Status</span>
             </div>
             {filtered.map((c) => (
               <Link
-                to={`/contacts/${c.id}`}
-                className="contacts-row contacts-row--clickable"
+                to={`/clients/${c.id}`}
+                className="clients-row clients-row--clickable"
                 key={c.id}
               >
-                <div className="contact-identity">
-                  <div className="contact-avatar">{c.initials}</div>
+                <div className="client-identity">
+                  <div className="client-avatar">{c.initials}</div>
                   <span>{c.name}</span>
                 </div>
-                <span className="contacts-cell-muted">{c.company}</span>
-                <span className="contacts-cell-muted contacts-col-email">{c.email}</span>
-                <span className="contacts-cell-muted contacts-col-phone">{c.phone}</span>
+                <span className="clients-cell-muted">{c.company}</span>
+                <span className="clients-cell-muted clients-col-email">{c.email}</span>
+                <span className="clients-cell-muted clients-col-phone">{c.phone}</span>
                 <StatusPill tone={STATUS_TONE[c.status] ?? 'neutral'}>{c.status}</StatusPill>
               </Link>
             ))}

@@ -6,7 +6,7 @@ export default function Email() {
     <PlaceholderPage
       icon={Mail}
       title="No conversations yet"
-      text="Email threads with your contacts will appear here."
+      text="Email threads with your clients will appear here."
     />
   )
 }

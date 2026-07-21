@@ -4,8 +4,8 @@ import { ArrowLeft, Mail, Phone, Building2 } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import StatusPill from '../components/ui/StatusPill.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
-import { mockContacts } from '../data/mockContacts.js'
-import { CONTACT_TABS } from '../data/contactTabs.js'
+import { mockClients } from '../data/mockClients.js'
+import { CLIENT_TABS } from '../data/clientTabs.js'
 
 const STATUS_TONE = {
   Customer: 'success',
@@ -13,62 +13,62 @@ const STATUS_TONE = {
   Churned: 'danger',
 }
 
-export default function ContactDetail() {
+export default function ClientDetail() {
   const { id } = useParams()
-  const contact = mockContacts.find((c) => String(c.id) === id)
-  const [activeTab, setActiveTab] = useState(CONTACT_TABS[0].key)
+  const client = mockClients.find((c) => String(c.id) === id)
+  const [activeTab, setActiveTab] = useState(CLIENT_TABS[0].key)
 
-  if (!contact) {
+  if (!client) {
     return (
       <div className="fade-up">
-        <Link to="/contacts" className="back-link">
+        <Link to="/clients" className="back-link">
           <ArrowLeft strokeWidth={2} />
-          <span>Back to Contacts</span>
+          <span>Back to Clients</span>
         </Link>
         <div style={{ marginTop: 20 }}>
           <Card>
-            <EmptyState title="Contact not found" text="This contact may have been removed." />
+            <EmptyState title="Client not found" text="This client may have been removed." />
           </Card>
         </div>
       </div>
     )
   }
 
-  const activeTabConfig = CONTACT_TABS.find((t) => t.key === activeTab)
+  const activeTabConfig = CLIENT_TABS.find((t) => t.key === activeTab)
 
   return (
     <>
       <div className="fade-up">
-        <Link to="/contacts" className="back-link">
+        <Link to="/clients" className="back-link">
           <ArrowLeft strokeWidth={2} />
-          <span>Back to Contacts</span>
+          <span>Back to Clients</span>
         </Link>
       </div>
 
       <div className="fade-up" style={{ animationDelay: '60ms' }}>
         <Card>
-          <div className="contact-detail-header">
-            <div className="contact-detail-identity">
-              <div className="contact-detail-avatar">{contact.initials}</div>
-              <div className="contact-detail-meta">
-                <div className="contact-detail-name">
-                  {contact.name}
-                  <StatusPill tone={STATUS_TONE[contact.status] ?? 'neutral'}>
-                    {contact.status}
+          <div className="client-detail-header">
+            <div className="client-detail-identity">
+              <div className="client-detail-avatar">{client.initials}</div>
+              <div className="client-detail-meta">
+                <div className="client-detail-name">
+                  {client.name}
+                  <StatusPill tone={STATUS_TONE[client.status] ?? 'neutral'}>
+                    {client.status}
                   </StatusPill>
                 </div>
-                <div className="contact-detail-sub">
-                  <span className="contact-detail-sub-item">
+                <div className="client-detail-sub">
+                  <span className="client-detail-sub-item">
                     <Building2 strokeWidth={2} />
-                    {contact.company}
+                    {client.company}
                   </span>
-                  <span className="contact-detail-sub-item">
+                  <span className="client-detail-sub-item">
                     <Mail strokeWidth={2} />
-                    {contact.email}
+                    {client.email}
                   </span>
-                  <span className="contact-detail-sub-item">
+                  <span className="client-detail-sub-item">
                     <Phone strokeWidth={2} />
-                    {contact.phone}
+                    {client.phone}
                   </span>
                 </div>
               </div>
@@ -79,7 +79,7 @@ export default function ContactDetail() {
 
       <div className="fade-up" style={{ animationDelay: '120ms' }}>
         <div className="tabs">
-          {CONTACT_TABS.map(({ key, label, icon: Icon }) => (
+          {CLIENT_TABS.map(({ key, label, icon: Icon }) => (
             <button
               key={key}
               type="button"

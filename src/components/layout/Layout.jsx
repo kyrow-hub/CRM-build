@@ -1,27 +1,29 @@
 import { useLocation, useMatch, Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar.jsx'
 import Header from './Header.jsx'
-import { mockContacts } from '../../data/mockContacts.js'
+import { mockClients } from '../../data/mockClients.js'
 
 const PAGE_META = {
   '/': { title: 'Dashboard', subtitle: 'Overview of your pipeline' },
   '/leads': { title: 'Leads', subtitle: 'Track and qualify new prospects' },
-  '/contacts': { title: 'Contacts', subtitle: 'Everyone you do business with' },
+  '/clients': { title: 'Clients', subtitle: 'Everyone you do business with' },
   '/deals': { title: 'Deals', subtitle: 'Opportunities in your pipeline' },
   '/meetings': { title: 'Meetings', subtitle: 'Upcoming and past meetings' },
-  '/email': { title: 'Email', subtitle: 'Conversations with your contacts' },
+  '/attendance': { title: 'Attendance Register', subtitle: 'Track program and activity attendance' },
+  '/email': { title: 'Email', subtitle: 'Conversations with your clients' },
+  '/reports': { title: 'Data Reports', subtitle: 'Case notes, referrals, goals, and service delivery' },
   '/settings': { title: 'Settings', subtitle: 'Manage your workspace' },
 }
 
 export default function Layout() {
   const { pathname } = useLocation()
-  const contactMatch = useMatch('/contacts/:id')
+  const clientMatch = useMatch('/clients/:id')
 
   let meta = PAGE_META[pathname]
 
-  if (!meta && contactMatch) {
-    const contact = mockContacts.find((c) => String(c.id) === contactMatch.params.id)
-    meta = contact ? { title: contact.name, subtitle: contact.company } : { title: 'Contact not found' }
+  if (!meta && clientMatch) {
+    const client = mockClients.find((c) => String(c.id) === clientMatch.params.id)
+    meta = client ? { title: client.name, subtitle: client.company } : { title: 'Client not found' }
   }
 
   meta = meta ?? { title: 'Coral CRM' }
