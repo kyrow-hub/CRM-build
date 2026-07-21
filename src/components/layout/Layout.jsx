@@ -8,7 +8,6 @@ const PAGE_META = {
   '/': { title: 'Dashboard', subtitle: 'Overview of your pipeline' },
   '/leads': { title: 'Leads', subtitle: 'Track and qualify new prospects' },
   '/clients': { title: 'Clients', subtitle: 'Everyone you do business with' },
-  '/deals': { title: 'Deals', subtitle: 'Opportunities in your pipeline' },
   '/partners': { title: 'Partners', subtitle: 'Businesses and organizations you work with' },
   '/meetings': { title: 'Meetings', subtitle: 'Upcoming and past meetings' },
   '/attendance': { title: 'Attendance Register', subtitle: 'Track program and activity attendance' },

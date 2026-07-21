@@ -4,7 +4,6 @@ import Dashboard from './pages/Dashboard.jsx'
 import Leads from './pages/Leads.jsx'
 import Clients from './pages/Clients.jsx'
 import ClientDetail from './pages/ClientDetail.jsx'
-import Deals from './pages/Deals.jsx'
 import Partners from './pages/Partners.jsx'
 import PartnerDetail from './pages/PartnerDetail.jsx'
 import Meetings from './pages/Meetings.jsx'
@@ -23,7 +22,6 @@ export default function App() {
           <Route path="/leads" element={<Leads />} />
           <Route path="/clients" element={<Clients />} />
           <Route path="/clients/:id" element={<ClientDetail />} />
-          <Route path="/deals" element={<Deals />} />
           <Route path="/partners" element={<Partners />} />
           <Route path="/partners/:id" element={<PartnerDetail />} />
           <Route path="/meetings" element={<Meetings />} />
