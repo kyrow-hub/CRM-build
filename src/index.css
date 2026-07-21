@@ -648,6 +648,10 @@ textarea.input {
   grid-template-columns: 1.4fr 2.6fr 1fr 1fr;
 }
 
+.leads-row {
+  grid-template-columns: 1.4fr 1.3fr 1.6fr 1.1fr 1fr 0.9fr;
+}
+
 @media (max-width: 900px) {
   .attendance-row {
     grid-template-columns: 1.5fr 1fr 0.9fr;
@@ -662,6 +666,15 @@ textarea.input {
   }
   .notes-row span:nth-child(3),
   .notes-row span:nth-child(4) {
+    display: none;
+  }
+
+  .leads-row {
+    grid-template-columns: 1.4fr 1fr 0.9fr;
+  }
+  .leads-col-email,
+  .leads-col-phone,
+  .leads-col-source {
     display: none;
   }
 }
