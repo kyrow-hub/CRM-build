@@ -5,6 +5,7 @@ import Card from '../components/ui/Card.jsx'
 import StatusPill from '../components/ui/StatusPill.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
 import CaseNotesPanel from '../components/client/CaseNotesPanel.jsx'
+import ClientDetailsPanel from '../components/client/ClientDetailsPanel.jsx'
 import { mockClients } from '../data/mockClients.js'
 import { CLIENT_TABS } from '../data/clientTabs.js'
 
@@ -94,7 +95,9 @@ export default function ClientDetail() {
         </div>
 
         <div style={{ marginTop: 20 }}>
-          {activeTab === 'case-notes' ? (
+          {activeTab === 'details' ? (
+            <ClientDetailsPanel key={client.id} client={client} />
+          ) : activeTab === 'case-notes' ? (
             <CaseNotesPanel key={client.id} clientName={client.name} />
           ) : (
             <Card>

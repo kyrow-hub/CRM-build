@@ -1,4 +1,5 @@
 import {
+  User,
   Activity,
   FileText,
   Share2,
@@ -11,6 +12,13 @@ import {
 } from 'lucide-react'
 
 export const CLIENT_TABS = [
+  {
+    key: 'details',
+    label: 'Details',
+    icon: User,
+    emptyTitle: 'No details recorded yet',
+    emptyText: 'Intake and demographic information for this client will appear here.',
+  },
   {
     key: 'activities',
     label: 'Activities',
