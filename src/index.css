@@ -792,6 +792,39 @@ textarea.input {
   height: 15px;
 }
 
+/* -------------------------------- Notes ------------------------------------ */
+
+.note-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.note-item {
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--border);
+}
+
+.note-item:last-child {
+  border-bottom: none;
+}
+
+.note-item-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.note-item-text {
+  font-size: 13.5px;
+  color: var(--text);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
 /* ------------------------------ Status pills ----------------------------- */
 
 .status-pill {
