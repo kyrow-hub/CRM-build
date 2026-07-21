@@ -4,6 +4,7 @@ import { ArrowLeft, Mail, Phone, Building2 } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import StatusPill from '../components/ui/StatusPill.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
+import CaseNotesPanel from '../components/client/CaseNotesPanel.jsx'
 import { mockClients } from '../data/mockClients.js'
 import { CLIENT_TABS } from '../data/clientTabs.js'
 
@@ -93,13 +94,17 @@ export default function ClientDetail() {
         </div>
 
         <div style={{ marginTop: 20 }}>
-          <Card>
-            <EmptyState
-              icon={activeTabConfig.icon}
-              title={activeTabConfig.emptyTitle}
-              text={activeTabConfig.emptyText}
-            />
-          </Card>
+          {activeTab === 'case-notes' ? (
+            <CaseNotesPanel key={client.id} clientName={client.name} />
+          ) : (
+            <Card>
+              <EmptyState
+                icon={activeTabConfig.icon}
+                title={activeTabConfig.emptyTitle}
+                text={activeTabConfig.emptyText}
+              />
+            </Card>
+          )}
         </div>
       </div>
     </>
