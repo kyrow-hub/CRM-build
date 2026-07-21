@@ -1,3 +1,5 @@
+import HeaderClientSearch from './HeaderClientSearch.jsx'
+
 export default function Header({ title, subtitle }) {
   return (
     <header className="header-bar">
@@ -7,6 +9,7 @@ export default function Header({ title, subtitle }) {
       </div>
 
       <div className="header-actions">
+        <HeaderClientSearch />
         <div className="header-avatar">JD</div>
       </div>
     </header>
