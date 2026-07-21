@@ -1,6 +1,7 @@
-import { useLocation, Outlet } from 'react-router-dom'
+import { useLocation, useMatch, Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar.jsx'
 import Header from './Header.jsx'
+import { mockContacts } from '../../data/mockContacts.js'
 
 const PAGE_META = {
   '/': { title: 'Dashboard', subtitle: 'Overview of your pipeline' },
@@ -14,7 +15,16 @@ const PAGE_META = {
 
 export default function Layout() {
   const { pathname } = useLocation()
-  const meta = PAGE_META[pathname] ?? { title: 'Coral CRM' }
+  const contactMatch = useMatch('/contacts/:id')
+
+  let meta = PAGE_META[pathname]
+
+  if (!meta && contactMatch) {
+    const contact = mockContacts.find((c) => String(c.id) === contactMatch.params.id)
+    meta = contact ? { title: contact.name, subtitle: contact.company } : { title: 'Contact not found' }
+  }
+
+  meta = meta ?? { title: 'Coral CRM' }
 
   return (
     <div className="app-shell">

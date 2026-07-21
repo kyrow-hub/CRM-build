@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Search, Users } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import StatusPill from '../components/ui/StatusPill.jsx'
@@ -58,7 +59,11 @@ export default function Contacts() {
               <span>Status</span>
             </div>
             {filtered.map((c) => (
-              <div className="contacts-row" key={c.id}>
+              <Link
+                to={`/contacts/${c.id}`}
+                className="contacts-row contacts-row--clickable"
+                key={c.id}
+              >
                 <div className="contact-identity">
                   <div className="contact-avatar">{c.initials}</div>
                   <span>{c.name}</span>
@@ -67,7 +72,7 @@ export default function Contacts() {
                 <span className="contacts-cell-muted contacts-col-email">{c.email}</span>
                 <span className="contacts-cell-muted contacts-col-phone">{c.phone}</span>
                 <StatusPill tone={STATUS_TONE[c.status] ?? 'neutral'}>{c.status}</StatusPill>
-              </div>
+              </Link>
             ))}
           </div>
         )}

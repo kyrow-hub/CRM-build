@@ -493,6 +493,15 @@ button {
   font-size: 13px;
 }
 
+.contacts-row--clickable {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.contacts-row--clickable:hover {
+  background: var(--surface-2);
+}
+
 @media (max-width: 900px) {
   .contacts-row {
     grid-template-columns: 1.6fr 1.2fr 0.9fr;
@@ -501,6 +510,132 @@ button {
   .contacts-col-phone {
     display: none;
   }
+}
+
+/* --------------------------------- Tabs ----------------------------------- */
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.tab-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.tab-item svg {
+  width: 16px;
+  height: 16px;
+}
+
+.tab-item:hover {
+  color: var(--text);
+}
+
+.tab-item.active {
+  color: var(--orange);
+  border-bottom-color: var(--orange);
+}
+
+/* ---------------------------- Contact detail ------------------------------ */
+
+.contact-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.contact-detail-identity {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.contact-detail-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--orange);
+  flex-shrink: 0;
+}
+
+.contact-detail-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.contact-detail-name {
+  font-family: var(--font-heading);
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.contact-detail-sub {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 12.5px;
+  color: var(--muted);
+  flex-wrap: wrap;
+}
+
+.contact-detail-sub-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.contact-detail-sub-item svg {
+  width: 13px;
+  height: 13px;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.back-link:hover {
+  color: var(--text);
+}
+
+.back-link svg {
+  width: 15px;
+  height: 15px;
 }
 
 /* ------------------------------ Status pills ----------------------------- */
