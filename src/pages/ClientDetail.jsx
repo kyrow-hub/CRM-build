@@ -6,6 +6,7 @@ import StatusPill from '../components/ui/StatusPill.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
 import CaseNotesPanel from '../components/client/CaseNotesPanel.jsx'
 import ClientDetailsPanel from '../components/client/ClientDetailsPanel.jsx'
+import GoalsOutcomesPanel from '../components/client/GoalsOutcomesPanel.jsx'
 import { mockClients } from '../data/mockClients.js'
 import { CLIENT_TABS } from '../data/clientTabs.js'
 
@@ -99,6 +100,8 @@ export default function ClientDetail() {
             <ClientDetailsPanel key={client.id} client={client} />
           ) : activeTab === 'case-notes' ? (
             <CaseNotesPanel key={client.id} clientName={client.name} />
+          ) : activeTab === 'goals-outcomes' ? (
+            <GoalsOutcomesPanel key={client.id} clientName={client.name} />
           ) : (
             <Card>
               <EmptyState
