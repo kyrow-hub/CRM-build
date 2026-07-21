@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FileText, Share2, TrendingUp, PackageCheck } from 'lucide-react'
+import { FileText, Share2, TrendingUp, PackageCheck, Users } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import StatCard from '../components/ui/StatCard.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
@@ -37,6 +37,15 @@ const REPORT_TABS = [
     emptyTitle: 'No service delivery to report',
     emptyText: 'Service delivery records entered across your clients will be summarized here.',
   },
+  {
+    key: 'demographics',
+    label: 'Demographics',
+    icon: Users,
+    statLabel: 'Clients with Details Captured',
+    emptyTitle: 'No demographic data to report',
+    emptyText:
+      'Client details like gender, ethnicity, cultural group, and consent status will be summarized here once captured.',
+  },
 ]
 
 export default function Reports() {
@@ -45,7 +54,7 @@ export default function Reports() {
 
   return (
     <>
-      <div className="stats-grid">
+      <div className="stats-grid stats-grid--five">
         {REPORT_TABS.map(({ key, statLabel, icon }, i) => (
           <div key={key} className="fade-up" style={{ animationDelay: `${i * 80}ms` }}>
             <StatCard label={statLabel} value="0" meta="No data recorded yet" icon={icon} />
