@@ -1,0 +1,60 @@
+export const mockPartners = [
+  {
+    id: 1,
+    businessName: 'Northside Community Health',
+    address: '482 Elm Street, Northbridge, CA 94040',
+    phone: '(650) 555-0142',
+    email: 'info@northsidehealth.org',
+    contacts: [
+      { id: 1, name: 'Rebecca Hall', phone: '(650) 555-0143', email: 'rebecca.hall@northsidehealth.org' },
+      { id: 2, name: 'David Chen', phone: '(650) 555-0144', email: 'david.chen@northsidehealth.org' },
+    ],
+  },
+  {
+    id: 2,
+    businessName: 'Bright Futures Youth Foundation',
+    address: '117 Cedar Avenue, Riverdale, CA 94555',
+    phone: '(510) 555-0187',
+    email: 'contact@brightfutures.org',
+    contacts: [{ id: 3, name: 'Priya Anand', phone: '(510) 555-0188', email: 'priya.anand@brightfutures.org' }],
+  },
+  {
+    id: 3,
+    businessName: 'Rivermill Foods',
+    address: '2200 Harbor Blvd, Milltown, CA 94612',
+    phone: '(414) 555-0122',
+    email: 'partnerships@rivermillfoods.com',
+    contacts: [
+      { id: 4, name: 'Caleb Whitmore', phone: '(414) 555-0123', email: 'caleb.whitmore@rivermillfoods.com' },
+      { id: 5, name: 'Nora Simmons', phone: '(414) 555-0124', email: 'nora.simmons@rivermillfoods.com' },
+      { id: 6, name: 'Theo Grant', phone: '(414) 555-0125', email: 'theo.grant@rivermillfoods.com' },
+    ],
+  },
+  {
+    id: 4,
+    businessName: 'Northgate Legal Aid',
+    address: '88 Courthouse Square, Northgate, CA 94301',
+    phone: '(602) 555-0139',
+    email: 'admin@northgatelegal.org',
+    contacts: [{ id: 7, name: 'Leila Farhat', phone: '(602) 555-0140', email: 'leila.farhat@northgatelegal.org' }],
+  },
+  {
+    id: 5,
+    businessName: 'Cascade Wellness Centre',
+    address: '65 Pine Ridge Road, Cascade, CA 98052',
+    phone: '(206) 555-0198',
+    email: 'hello@cascadewellness.io',
+    contacts: [
+      { id: 8, name: 'Sofia Rinaldi', phone: '(206) 555-0199', email: 'sofia.rinaldi@cascadewellness.io' },
+      { id: 9, name: 'Marcus Ide', phone: '(206) 555-0200', email: 'marcus.ide@cascadewellness.io' },
+    ],
+  },
+  {
+    id: 6,
+    businessName: 'Palm & Pine Realty',
+    address: '340 Ocean Drive, Palmview, CA 94063',
+    phone: '(305) 555-0112',
+    email: 'office@palmpinerealty.com',
+    contacts: [],
+  },
+]
