@@ -1,0 +1,49 @@
+import { NavLink } from 'react-router-dom'
+import {
+  LayoutDashboard,
+  Target,
+  Users,
+  Handshake,
+  Calendar,
+  Mail,
+  Settings,
+} from 'lucide-react'
+
+const NAV_ITEMS = [
+  { label: 'Dashboard', to: '/', icon: LayoutDashboard },
+  { label: 'Leads', to: '/leads', icon: Target },
+  { label: 'Contacts', to: '/contacts', icon: Users },
+  { label: 'Deals', to: '/deals', icon: Handshake },
+  { label: 'Meetings', to: '/meetings', icon: Calendar },
+  { label: 'Email', to: '/email', icon: Mail },
+  { label: 'Settings', to: '/settings', icon: Settings },
+]
+
+export default function Sidebar() {
+  return (
+    <aside className="sidebar">
+      <div className="sidebar-brand">
+        <div className="sidebar-brand-mark">C</div>
+        <span className="sidebar-brand-text">Coral CRM</span>
+      </div>
+
+      <nav className="sidebar-nav">
+        {NAV_ITEMS.map(({ label, to, icon: Icon }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={to === '/'}
+            className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
+          >
+            <Icon strokeWidth={2} />
+            <span>{label}</span>
+          </NavLink>
+        ))}
+      </nav>
+
+      <div className="sidebar-footer">
+        <div className="sidebar-footer-label">Coral CRM v0.1</div>
+      </div>
+    </aside>
+  )
+}
