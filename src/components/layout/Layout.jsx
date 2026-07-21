@@ -1,7 +1,8 @@
+import { useEffect, useState } from 'react'
 import { useLocation, useMatch, Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar.jsx'
 import Header from './Header.jsx'
-import { mockClients } from '../../data/mockClients.js'
+import { getClientById } from '../../services/clientService.js'
 import { usePartners } from '../../context/PartnersContext.jsx'
 
 const PAGE_META = {
@@ -21,12 +22,32 @@ export default function Layout() {
   const clientMatch = useMatch('/clients/:id')
   const partnerMatch = useMatch('/partners/:id')
   const { partners } = usePartners()
+  const [clientMeta, setClientMeta] = useState(null)
+
+  useEffect(() => {
+    if (!clientMatch) {
+      setClientMeta(null)
+      return
+    }
+    let cancelled = false
+    getClientById(clientMatch.params.id)
+      .then((client) => {
+        if (cancelled) return
+        const fullName = [client.first_name, client.last_name].filter(Boolean).join(' ')
+        setClientMeta({ title: fullName, subtitle: client.client_number })
+      })
+      .catch(() => {
+        if (!cancelled) setClientMeta({ title: 'Client not found' })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [clientMatch])
 
   let meta = PAGE_META[pathname]
 
   if (!meta && clientMatch) {
-    const client = mockClients.find((c) => String(c.id) === clientMatch.params.id)
-    meta = client ? { title: client.name, subtitle: client.company } : { title: 'Client not found' }
+    meta = clientMeta ?? { title: 'Loading...' }
   }
 
   if (!meta && partnerMatch) {

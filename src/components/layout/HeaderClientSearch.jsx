@@ -1,25 +1,36 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search } from 'lucide-react'
-import { mockClients } from '../../data/mockClients.js'
-
-function matchesClient(client, query) {
-  const parts = client.name.trim().split(/\s+/)
-  const firstName = parts[0] ?? ''
-  const lastName = parts[parts.length - 1] ?? ''
-  return firstName.toLowerCase().includes(query) || lastName.toLowerCase().includes(query)
-}
+import { listClients } from '../../services/clientService.js'
+import { initials } from '../../utils/initials.js'
 
 export default function HeaderClientSearch() {
   const [query, setQuery] = useState('')
+  const [results, setResults] = useState([])
   const [open, setOpen] = useState(false)
   const wrapperRef = useRef(null)
   const navigate = useNavigate()
 
-  const results = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return []
-    return mockClients.filter((c) => matchesClient(c, q)).slice(0, 6)
+  useEffect(() => {
+    const term = query.trim()
+    if (!term) {
+      setResults([])
+      return
+    }
+    let cancelled = false
+    const timeout = setTimeout(() => {
+      listClients({ search: term })
+        .then((data) => {
+          if (!cancelled) setResults(data.slice(0, 6))
+        })
+        .catch(() => {
+          if (!cancelled) setResults([])
+        })
+    }, 250)
+    return () => {
+      cancelled = true
+      clearTimeout(timeout)
+    }
   }, [query])
 
   useEffect(() => {
@@ -69,19 +80,18 @@ export default function HeaderClientSearch() {
           {results.length === 0 ? (
             <div className="header-search-empty">No clients match "{query.trim()}"</div>
           ) : (
-            results.map((c) => (
-              <div
-                key={c.id}
-                className="header-search-result"
-                onMouseDown={() => goToClient(c.id)}
-              >
-                <div className="client-avatar">{c.initials}</div>
-                <div>
-                  <div className="header-search-result-name">{c.name}</div>
-                  <div className="header-search-result-meta">{c.company}</div>
+            results.map((c) => {
+              const fullName = [c.first_name, c.last_name].filter(Boolean).join(' ')
+              return (
+                <div key={c.id} className="header-search-result" onMouseDown={() => goToClient(c.id)}>
+                  <div className="client-avatar">{initials(fullName)}</div>
+                  <div>
+                    <div className="header-search-result-name">{fullName}</div>
+                    <div className="header-search-result-meta">{c.client_number}</div>
+                  </div>
                 </div>
-              </div>
-            ))
+              )
+            })
           )}
         </div>
       )}

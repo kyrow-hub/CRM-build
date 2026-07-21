@@ -1,5 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
 import Layout from './components/layout/Layout.jsx'
+import ProtectedRoute from './components/auth/ProtectedRoute.jsx'
+import Login from './pages/Login.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import Leads from './pages/Leads.jsx'
 import Clients from './pages/Clients.jsx'
@@ -11,26 +13,35 @@ import AttendanceRegister from './pages/AttendanceRegister.jsx'
 import Email from './pages/Email.jsx'
 import Reports from './pages/Reports.jsx'
 import Settings from './pages/Settings.jsx'
+import { AuthProvider } from './context/AuthContext.jsx'
+import { ToastProvider } from './context/ToastContext.jsx'
 import { PartnersProvider } from './context/PartnersContext.jsx'
 
 export default function App() {
   return (
-    <PartnersProvider>
-      <Routes>
-        <Route element={<Layout />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/leads" element={<Leads />} />
-          <Route path="/clients" element={<Clients />} />
-          <Route path="/clients/:id" element={<ClientDetail />} />
-          <Route path="/partners" element={<Partners />} />
-          <Route path="/partners/:id" element={<PartnerDetail />} />
-          <Route path="/meetings" element={<Meetings />} />
-          <Route path="/attendance" element={<AttendanceRegister />} />
-          <Route path="/email" element={<Email />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/settings" element={<Settings />} />
-        </Route>
-      </Routes>
-    </PartnersProvider>
+    <AuthProvider>
+      <ToastProvider>
+        <PartnersProvider>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route element={<ProtectedRoute />}>
+              <Route element={<Layout />}>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/leads" element={<Leads />} />
+                <Route path="/clients" element={<Clients />} />
+                <Route path="/clients/:id" element={<ClientDetail />} />
+                <Route path="/partners" element={<Partners />} />
+                <Route path="/partners/:id" element={<PartnerDetail />} />
+                <Route path="/meetings" element={<Meetings />} />
+                <Route path="/attendance" element={<AttendanceRegister />} />
+                <Route path="/email" element={<Email />} />
+                <Route path="/reports" element={<Reports />} />
+                <Route path="/settings" element={<Settings />} />
+              </Route>
+            </Route>
+          </Routes>
+        </PartnersProvider>
+      </ToastProvider>
+    </AuthProvider>
   )
 }
