@@ -5,17 +5,21 @@ import {
   Users,
   Handshake,
   Calendar,
+  ClipboardCheck,
   Mail,
+  BarChart3,
   Settings,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
   { label: 'Dashboard', to: '/', icon: LayoutDashboard },
   { label: 'Leads', to: '/leads', icon: Target },
-  { label: 'Contacts', to: '/contacts', icon: Users },
+  { label: 'Clients', to: '/clients', icon: Users },
   { label: 'Deals', to: '/deals', icon: Handshake },
   { label: 'Meetings', to: '/meetings', icon: Calendar },
+  { label: 'Attendance', to: '/attendance', icon: ClipboardCheck },
   { label: 'Email', to: '/email', icon: Mail },
+  { label: 'Reports', to: '/reports', icon: BarChart3 },
   { label: 'Settings', to: '/settings', icon: Settings },
 ]
 
