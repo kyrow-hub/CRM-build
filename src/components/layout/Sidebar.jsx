@@ -8,6 +8,7 @@ import {
   Building2,
   Calendar,
   ClipboardCheck,
+  Mail,
   BarChart3,
   Settings,
 } from 'lucide-react'
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { label: 'Partners', to: '/partners', icon: Building2 },
   { label: 'Meetings', to: '/meetings', icon: Calendar },
   { label: 'Attendance', to: '/attendance', icon: ClipboardCheck },
+  { label: 'Email', to: '/email', icon: Mail },
   { label: 'Reports', to: '/reports', icon: BarChart3 },
   { label: 'Settings', to: '/settings', icon: Settings },
 ]

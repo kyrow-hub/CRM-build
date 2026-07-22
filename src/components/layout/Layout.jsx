@@ -13,6 +13,7 @@ const PAGE_META = {
   '/partners': { title: 'Partners', subtitle: 'Businesses and organizations you work with' },
   '/meetings': { title: 'Meetings', subtitle: 'Upcoming and past meetings' },
   '/attendance': { title: 'Attendance Register', subtitle: 'Track program and activity attendance' },
+  '/email': { title: 'Email', subtitle: 'Send and receive email with your clients' },
   '/reports': { title: 'Data Reports', subtitle: 'Case notes, referrals, goals, and service delivery' },
   '/settings': { title: 'Settings', subtitle: 'Manage your workspace' },
 }

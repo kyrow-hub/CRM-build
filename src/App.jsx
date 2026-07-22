@@ -11,6 +11,7 @@ import PartnerDetail from './pages/PartnerDetail.jsx'
 import Referrals from './pages/Referrals.jsx'
 import Meetings from './pages/Meetings.jsx'
 import AttendanceRegister from './pages/AttendanceRegister.jsx'
+import Email from './pages/Email.jsx'
 import Reports from './pages/Reports.jsx'
 import Settings from './pages/Settings.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
@@ -33,6 +34,7 @@ export default function App() {
               <Route path="/partners/:id" element={<PartnerDetail />} />
               <Route path="/meetings" element={<Meetings />} />
               <Route path="/attendance" element={<AttendanceRegister />} />
+              <Route path="/email" element={<Email />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/settings" element={<Settings />} />
             </Route>

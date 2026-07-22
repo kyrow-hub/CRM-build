@@ -86,7 +86,59 @@ New signups default to the lowest-privilege `viewer` role — nobody can grant t
    ```
 
 3. Sign in — you now have full administrator access and can promote/manage other users
-   from the database directly (a dedicated admin UI for this isn't built yet).
+   directly from Settings → Team Management.
+
+## Email sending and receiving (Resend)
+
+The Email page sends and receives real email through [Resend](https://resend.com) via two
+Supabase Edge Functions. Neither the Resend API key nor the Supabase service-role key ever
+touch the frontend - both live only in Edge Function secrets.
+
+### Sending (send-email)
+
+1. Create a free account at [resend.com](https://resend.com) and grab an API key from the
+   dashboard.
+2. Verify a sending domain under **Domains** (add the SPF/DKIM DNS records Resend gives
+   you). Until verified, Resend's sandbox only lets you send to your own account email.
+3. Install the [Supabase CLI](https://supabase.com/docs/guides/cli) if you don't have it,
+   then link your project: `supabase login` and `supabase link --project-ref your-project-ref`.
+4. Set secrets and deploy:
+   ```bash
+   supabase secrets set RESEND_API_KEY=re_your_api_key
+   supabase secrets set RESEND_FROM_ADDRESS="Bori Muy CRM <crm@yourverifieddomain.org>"
+   supabase functions deploy send-email
+   ```
+
+### Receiving (receive-email)
+
+This is a bigger step - it requires DNS changes on a domain you control.
+
+1. In Resend, go to your verified domain and enable **Inbound** (or add an inbound route),
+   which gives you an MX record to add at your DNS provider pointing mail for that domain
+   (or a subdomain like `mail.yourdomain.org`) at Resend's inbound servers.
+2. Create a webhook in Resend for the `email.received` event, pointed at your deployed
+   function's URL (`https://your-project-ref.supabase.co/functions/v1/receive-email`).
+   Resend will show you a signing secret when you create it - copy it.
+3. Get your project's **service-role key** from Supabase dashboard → Project Settings →
+   API (this key bypasses all security rules - never put it in the frontend or commit it
+   anywhere).
+4. Set secrets and deploy with JWT verification disabled (Resend isn't a logged-in CRM
+   user, so there's no Supabase auth token for it to send - authenticity instead comes from
+   the webhook signature, which the function verifies itself):
+   ```bash
+   supabase secrets set RESEND_WEBHOOK_SECRET=whsec_your_signing_secret
+   supabase secrets set SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+   supabase functions deploy receive-email --no-verify-jwt
+   ```
+5. Run the `0011_inbound_email.sql` migration (see above) if you haven't already.
+6. Send a test email to your inbound address and check **Email** in the CRM. The exact
+   shape of Resend's inbound webhook payload is worth double-checking against the
+   **Webhooks** delivery log in your Resend dashboard the first time - third-party payload
+   formats occasionally shift, and that log is the fastest way to spot a mismatch.
+
+Inbound emails from a sender that doesn't match any client's email address are still
+logged (with no client attached) rather than dropped - staff can link them to the right
+client afterwards from the Email page.
 
 ## Running locally
 
@@ -128,8 +180,8 @@ supabase/
 Every page is wired to real Supabase tables: Authentication, Dashboard, Clients, Case
 Notes, Goals & Outcomes, Case Activities, Outcomes, Referrals, Attendance Register/Group
 Sessions, Reports (including the KPI, Program Performance, Overnight Camp, Group Note,
-Group Attendance, and Good News Stories tabs), Leads, Partners, Meetings, and Settings
-(profile editing and team/role management). The only thing not built is inbound email
-(receiving/replying) - outbound sending was built and later removed at the user's request.
-See `DEVELOPMENT_AUDIT.md` for the original page-by-page breakdown, though note it was
+Group Attendance, and Good News Stories tabs), Leads, Partners, Meetings, Email (sending
+via Resend and receiving via an inbound webhook - see above), and Settings (profile
+editing and team/role management). See `DEVELOPMENT_AUDIT.md` for the original
+page-by-page breakdown, though note it was
 written early on and hasn't been kept fully in sync with every migration since.
