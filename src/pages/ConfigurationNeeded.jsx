@@ -1,11 +1,12 @@
 import { AlertTriangle } from 'lucide-react'
+import logoMark from '../assets/logo-mark.png'
 
 export default function ConfigurationNeeded() {
   return (
     <div className="login-screen">
       <div className="login-card" style={{ maxWidth: 460 }}>
         <div className="sidebar-brand" style={{ marginBottom: 20, padding: 0 }}>
-          <div className="sidebar-brand-mark">B</div>
+          <img src={logoMark} alt="Bori Muy" className="sidebar-brand-mark" />
           <span className="sidebar-brand-text">Bori Muy CRM</span>
         </div>
 

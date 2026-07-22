@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import logoMark from '../../assets/logo-mark.png'
 import {
   LayoutDashboard,
   Target,
@@ -27,7 +28,7 @@ export default function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
-        <div className="sidebar-brand-mark">B</div>
+        <img src={logoMark} alt="Bori Muy" className="sidebar-brand-mark" />
         <span className="sidebar-brand-text">Bori Muy CRM</span>
       </div>
 

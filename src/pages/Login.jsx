@@ -3,6 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom'
 import { LogIn } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import Button from '../components/ui/Button.jsx'
+import logoMark from '../assets/logo-mark.png'
 
 export default function Login() {
   const { session, loading, signIn } = useAuth()
@@ -32,7 +33,7 @@ export default function Login() {
     <div className="login-screen">
       <div className="login-card">
         <div className="sidebar-brand" style={{ marginBottom: 28, padding: 0 }}>
-          <div className="sidebar-brand-mark">B</div>
+          <img src={logoMark} alt="Bori Muy" className="sidebar-brand-mark" />
           <span className="sidebar-brand-text">Bori Muy CRM</span>
         </div>
 
