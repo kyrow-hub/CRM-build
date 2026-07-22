@@ -14,6 +14,7 @@ import ClientReferralsPanel from '../components/client/ClientReferralsPanel.jsx'
 import ClientProgramsPanel from '../components/client/ClientProgramsPanel.jsx'
 import ClientDocumentsPanel from '../components/client/ClientDocumentsPanel.jsx'
 import ClientStaffRegisterPanel from '../components/client/ClientStaffRegisterPanel.jsx'
+import ClientFollowUpsPanel from '../components/client/ClientFollowUpsPanel.jsx'
 import { getClientById, updateClient, archiveClient, listAssignableWorkers } from '../services/clientService.js'
 import { useToast } from '../context/ToastContext.jsx'
 import { initials } from '../utils/initials.js'
@@ -254,6 +255,8 @@ export default function ClientDetail() {
             <ClientDocumentsPanel key={client.id} clientId={client.id} clientName={fullName} />
           ) : activeTab === 'staff-register' ? (
             <ClientStaffRegisterPanel key={client.id} clientId={client.id} clientName={fullName} />
+          ) : activeTab === 'follow-ups' ? (
+            <ClientFollowUpsPanel key={client.id} clientId={client.id} clientName={fullName} />
           ) : (
             <Card>
               <EmptyState
