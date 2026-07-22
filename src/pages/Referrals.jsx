@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Search, Share2, Plus, Check, X } from 'lucide-react'
+import { Search, Share2, Plus, Check, X, Link2 } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import Button from '../components/ui/Button.jsx'
 import StatusPill from '../components/ui/StatusPill.jsx'
@@ -68,6 +68,29 @@ function ReferralRow({ referral, clients, onUpdated }) {
     }
   }
 
+  const openLink = () => {
+    setClientId(referral.client_id || '')
+    setMode(mode === 'link' ? null : 'link')
+  }
+
+  const handleLink = async () => {
+    setSubmitting(true)
+    try {
+      await updateReferral(referral.id, { client_id: clientId || null })
+      toast.success(clientId ? 'Referral linked to client.' : 'Referral unlinked.')
+      setMode(null)
+      onUpdated()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const linkedName = referral.client
+    ? [referral.client.first_name, referral.client.last_name].filter(Boolean).join(' ')
+    : null
+
   return (
     <div className="group-session-participant-row">
       <div className="group-session-participant-main">
@@ -80,19 +103,43 @@ function ReferralRow({ referral, clients, onUpdated }) {
           {referral.date_received}
         </span>
         <StatusPill tone={STATUS_TONE[referral.status] ?? 'neutral'}>{referral.status}</StatusPill>
-        {referral.status === 'Received' && (
-          <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
-            <Button type="button" variant="secondary" onClick={() => setMode(mode === 'accept' ? null : 'accept')}>
-              <Check strokeWidth={2} />
-              Accept
-            </Button>
-            <Button type="button" variant="secondary" onClick={() => setMode(mode === 'decline' ? null : 'decline')}>
-              <X strokeWidth={2} />
-              Decline
-            </Button>
-          </div>
-        )}
+        <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
+          {referral.status === 'Received' && (
+            <>
+              <Button type="button" variant="secondary" onClick={() => setMode(mode === 'accept' ? null : 'accept')}>
+                <Check strokeWidth={2} />
+                Accept
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => setMode(mode === 'decline' ? null : 'decline')}>
+                <X strokeWidth={2} />
+                Decline
+              </Button>
+            </>
+          )}
+          <Button type="button" variant="secondary" onClick={openLink}>
+            <Link2 strokeWidth={2} />
+            {linkedName ? 'Change Client' : 'Link Client'}
+          </Button>
+        </div>
       </div>
+      <div className="data-cell-muted" style={{ marginTop: -4 }}>
+        {linkedName ? `Linked to ${linkedName}` : 'Not linked to a client'}
+      </div>
+      {mode === 'link' && (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <select className="input" style={{ maxWidth: 320 }} value={clientId} onChange={(e) => setClientId(e.target.value)}>
+            <option value="">No client (unlinked)</option>
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>
+                {[c.first_name, c.last_name].filter(Boolean).join(' ')}
+              </option>
+            ))}
+          </select>
+          <Button type="button" onClick={handleLink} disabled={submitting}>
+            {submitting ? 'Saving...' : 'Save Link'}
+          </Button>
+        </div>
+      )}
       {mode === 'accept' && (
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <select className="input" style={{ maxWidth: 320 }} value={clientId} onChange={(e) => setClientId(e.target.value)}>
