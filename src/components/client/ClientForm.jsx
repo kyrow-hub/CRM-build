@@ -6,6 +6,19 @@ const GENDER_OPTIONS = ['Male', 'Female', 'Other', 'Not stated']
 const INDIGENOUS_OPTIONS = ['Aboriginal', 'Torres Strait Islander', 'Both', 'Neither', 'Not stated']
 const STATUS_OPTIONS = ['active', 'inactive', 'pending', 'closed']
 const RISK_LEVEL_OPTIONS = ['Low', 'Medium', 'High']
+const LIVING_SITUATION_OPTIONS = [
+  'Living with both parents',
+  'Living with mother',
+  'Living with father',
+  'Living with guardian',
+  'Living with grandparent(s)',
+  'Foster care',
+  'Out-of-home care (other)',
+  'Shared/split care',
+  'Independent living',
+  'Homeless/unstable housing',
+  'Other',
+]
 
 const blankValues = {
   client_number: '',
@@ -21,6 +34,7 @@ const blankValues = {
   address: '',
   suburb: '',
   postcode: '',
+  living_situation: '',
   emergency_contact_name: '',
   emergency_contact_phone: '',
   referral_source: '',
@@ -187,6 +201,24 @@ export default function ClientForm({ initialValues, workers, onSubmit, onCancel,
               Postcode
             </label>
             <input id="cf-postcode" className="input" value={values.postcode} onChange={set('postcode')} />
+          </div>
+          <div>
+            <label className="form-label" htmlFor="cf-living_situation">
+              Living Situation
+            </label>
+            <select
+              id="cf-living_situation"
+              className="input"
+              value={values.living_situation}
+              onChange={set('living_situation')}
+            >
+              <option value="">Select...</option>
+              {LIVING_SITUATION_OPTIONS.map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="form-label" htmlFor="cf-emergency_contact_name">

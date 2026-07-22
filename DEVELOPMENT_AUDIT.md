@@ -31,7 +31,8 @@ gated by Supabase Auth plus role-based RLS policies (see `supabase/migrations/`)
 
 | Tab | Backing | Notes |
 |---|---|---|
-| Details | `clients` | Editable via the header "Edit" form. |
+| Details | `clients` | Editable via the header "Edit" form. Includes a `living_situation` field (e.g. "Living with mother", "Foster care"). |
+| Family & Contacts | `client_relationships` | Guardians, parents, siblings, and other emergency contacts, each with relationship type, phone, email, address, and a primary-contact flag. |
 | Activities | `case_activities` | Confidentiality-aware (private entries visible only to their author and admins/managers). |
 | Case Notes | `client_notes` | Category dropdown backed by `src/data/noteCategories.js` (16 service-delivery categories); confidentiality-aware. |
 | Referrals | `referrals` | Full CRUD. |

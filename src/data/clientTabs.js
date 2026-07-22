@@ -9,6 +9,7 @@ import {
   BookOpen,
   CalendarClock,
   Folder,
+  Users,
 } from 'lucide-react'
 
 export const CLIENT_TABS = [
@@ -18,6 +19,13 @@ export const CLIENT_TABS = [
     icon: User,
     emptyTitle: 'No details recorded yet',
     emptyText: 'Intake and demographic information for this client will appear here.',
+  },
+  {
+    key: 'relationships',
+    label: 'Family & Contacts',
+    icon: Users,
+    emptyTitle: 'No contacts recorded yet',
+    emptyText: 'Parents, guardians, siblings, and other emergency contacts for this client will appear here.',
   },
   {
     key: 'activities',

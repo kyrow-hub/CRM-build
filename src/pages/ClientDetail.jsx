@@ -11,6 +11,7 @@ import GoalsOutcomesPanel from '../components/client/GoalsOutcomesPanel.jsx'
 import CaseActivitiesPanel from '../components/client/CaseActivitiesPanel.jsx'
 import OutcomesPanel from '../components/client/OutcomesPanel.jsx'
 import ClientReferralsPanel from '../components/client/ClientReferralsPanel.jsx'
+import ClientRelationshipsPanel from '../components/client/ClientRelationshipsPanel.jsx'
 import ClientProgramsPanel from '../components/client/ClientProgramsPanel.jsx'
 import ClientDocumentsPanel from '../components/client/ClientDocumentsPanel.jsx'
 import ClientStaffRegisterPanel from '../components/client/ClientStaffRegisterPanel.jsx'
@@ -37,6 +38,7 @@ const DETAIL_FIELDS = [
   { key: 'address', label: 'Address' },
   { key: 'suburb', label: 'Suburb' },
   { key: 'postcode', label: 'Postcode' },
+  { key: 'living_situation', label: 'Living Situation' },
   { key: 'emergency_contact_name', label: 'Emergency Contact Name' },
   { key: 'emergency_contact_phone', label: 'Emergency Contact Phone' },
   { key: 'referral_source', label: 'Referral Source' },
@@ -239,6 +241,8 @@ export default function ClientDetail() {
                 ))}
               </div>
             </Card>
+          ) : activeTab === 'relationships' ? (
+            <ClientRelationshipsPanel key={client.id} clientId={client.id} clientName={fullName} />
           ) : activeTab === 'activities' ? (
             <CaseActivitiesPanel key={client.id} clientId={client.id} clientName={fullName} />
           ) : activeTab === 'case-notes' ? (
