@@ -630,6 +630,12 @@ button {
   color: #818cf8;
 }
 
+.avatar--red,
+.stat-card-icon--red {
+  background: rgba(248, 113, 113, 0.14);
+  color: #f87171;
+}
+
 .clients-cell-muted {
   color: var(--muted);
   font-size: 13px;
@@ -759,6 +765,10 @@ textarea.input {
 
 .team-row {
   grid-template-columns: 1.4fr 1.6fr 1fr 1.6fr;
+}
+
+.program-performance-row {
+  grid-template-columns: 1.6fr 0.8fr 0.8fr 1fr 0.9fr 1fr 0.9fr 1fr;
 }
 
 @media (max-width: 900px) {

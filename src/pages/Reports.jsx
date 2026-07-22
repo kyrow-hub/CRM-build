@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { FileText, Share2, TrendingUp, Award, Activity, PackageCheck, Users, Download, Gauge } from 'lucide-react'
+import { FileText, Share2, TrendingUp, Award, Activity, PackageCheck, Users, Download, Gauge, BarChart3 } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import Button from '../components/ui/Button.jsx'
 import StatCard from '../components/ui/StatCard.jsx'
@@ -12,6 +12,7 @@ import { countReferralsByStatus, listReferrals } from '../services/referralServi
 import { countCaseActivities, listAllCaseActivities } from '../services/caseActivityService.js'
 import { countOutcomesByCategory, listAllOutcomes } from '../services/outcomeService.js'
 import { getEngagedClientCount, getProgramHoursStats, getAttendanceStats, getGoalStatusCounts } from '../services/kpiService.js'
+import { getProgramPerformance } from '../services/programPerformanceService.js'
 import { downloadCsv } from '../utils/exportCsv.js'
 
 const GOAL_STATUS_TONE = {
@@ -42,6 +43,7 @@ const REPORT_TABS = [
   { key: 'service-delivery', label: 'Service Delivery', icon: PackageCheck, tone: 'orange' },
   { key: 'demographics', label: 'Demographics', icon: Users, tone: 'yellow' },
   { key: 'kpi', label: 'KPI Report', icon: Gauge, tone: 'indigo' },
+  { key: 'program-performance', label: 'Program Performance', icon: BarChart3, tone: 'red' },
 ]
 
 function formatPercent(numerator, denominator) {
@@ -154,6 +156,20 @@ function kpiToRows(kpi) {
   ]
 }
 
+function programPerformanceToRows(programs) {
+  return programs.map((p) => ({
+    Program: p.name,
+    'Sessions Run': p.sessionCount,
+    'Camp Sessions': p.campSessions,
+    'Total Attendance': p.totalAttendance,
+    'Distinct Participants': p.distinctParticipants,
+    'Repeat Attendance': p.repeatParticipants,
+    'Avg Attendance per Session': p.avgAttendance.toFixed(1),
+    'Hours Delivered': p.hours.toFixed(1),
+    'Attendance Rate': p.attendanceRate == null ? '' : `${Math.round(p.attendanceRate * 100)}%`,
+  }))
+}
+
 function ExportButton({ rows, filename }) {
   return (
     <Button
@@ -209,6 +225,7 @@ export default function Reports() {
   const [programHours, setProgramHours] = useState({ totalHours: 0, sessionsWithDuration: 0, totalSessions: 0 })
   const [attendanceStats, setAttendanceStats] = useState({ statusCounts: {}, total: 0, distinctClients: 0 })
   const [goalStatusCounts, setGoalStatusCounts] = useState({})
+  const [programPerformance, setProgramPerformance] = useState([])
 
   useEffect(() => {
     Promise.all([
@@ -228,6 +245,7 @@ export default function Reports() {
       getProgramHoursStats(),
       getAttendanceStats(),
       getGoalStatusCounts(),
+      getProgramPerformance(),
     ])
       .then(
         ([
@@ -247,6 +265,7 @@ export default function Reports() {
           hoursStats,
           attendanceStatsResult,
           goalStatuses,
+          programPerformanceResult,
         ]) => {
           setNotesCount(nCount)
           setGoalsCount(gCount)
@@ -264,6 +283,7 @@ export default function Reports() {
           setProgramHours(hoursStats)
           setAttendanceStats(attendanceStatsResult)
           setGoalStatusCounts(goalStatuses)
+          setProgramPerformance(programPerformanceResult)
         },
       )
       .finally(() => setLoading(false))
@@ -281,6 +301,7 @@ export default function Reports() {
     'service-delivery': { label: 'Services Delivered', value: 0 },
     demographics: { label: 'Clients with Details Captured', value: detailsCount },
     kpi: { label: 'Young People Supported', value: engagedClientCount },
+    'program-performance': { label: 'Programs Delivered', value: programPerformance.filter((p) => p.sessionCount > 0).length },
   }
 
   const activeCount = clientsForReports.filter((c) => c.status === 'active' && !c.archived_at).length
@@ -321,6 +342,12 @@ export default function Reports() {
     attendanceRate,
     outcomesCount,
   }
+
+  const programsDelivered = programPerformance.filter((p) => p.sessionCount > 0).length
+  const totalGroupsRun = programPerformance.reduce((sum, p) => sum + p.sessionCount, 0)
+  const totalProgramHours = programPerformance.reduce((sum, p) => sum + p.hours, 0)
+  const totalProgramAttendance = programPerformance.reduce((sum, p) => sum + p.totalAttendance, 0)
+  const overallAvgAttendance = totalGroupsRun ? totalProgramAttendance / totalGroupsRun : 0
 
   return (
     <>
@@ -657,6 +684,82 @@ export default function Reports() {
               <div className="details-grid">
                 <BreakdownCard title="Case Closure Reasons" entries={closureReasonBreakdown} />
               </div>
+            </>
+          ) : activeTab === 'program-performance' ? (
+            <>
+              <ExportButton rows={programPerformanceToRows(programPerformance)} filename="program-performance-report.csv" />
+              <div className="details-grid" style={{ marginBottom: 18 }}>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Programs Delivered
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : programsDelivered}
+                  </div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Groups Run
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : totalGroupsRun}
+                  </div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Total Program Hours
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : totalProgramHours.toFixed(1)}
+                  </div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Overall Avg. Attendance
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : overallAvgAttendance.toFixed(1)}
+                  </div>
+                </Card>
+              </div>
+              <Card style={!loading && programPerformance.length === 0 ? undefined : { padding: 0 }}>
+                {loading ? (
+                  <EmptyState icon={BarChart3} title="Loading..." text="Fetching program performance." />
+                ) : programPerformance.length === 0 ? (
+                  <EmptyState
+                    icon={BarChart3}
+                    title="No programs to report"
+                    text="Programs created in Attendance Register will be summarized here once they have sessions."
+                  />
+                ) : (
+                  <div className="data-table">
+                    <div className="data-row program-performance-row data-row--head">
+                      <span>Program</span>
+                      <span>Sessions</span>
+                      <span>Camps</span>
+                      <span>Attendance</span>
+                      <span>Repeat</span>
+                      <span>Avg/Session</span>
+                      <span>Hours</span>
+                      <span>Present Rate</span>
+                    </div>
+                    {programPerformance.map((p) => (
+                      <div className="data-row program-performance-row" key={p.id}>
+                        <span>{p.name}</span>
+                        <span className="data-cell-muted">{p.sessionCount}</span>
+                        <span className="data-cell-muted">{p.campSessions}</span>
+                        <span className="data-cell-muted">{p.totalAttendance}</span>
+                        <span className="data-cell-muted">{p.repeatParticipants}</span>
+                        <span className="data-cell-muted">{p.avgAttendance.toFixed(1)}</span>
+                        <span className="data-cell-muted">{p.hours.toFixed(1)}</span>
+                        <span className="data-cell-muted">
+                          {p.attendanceRate == null ? '—' : `${Math.round(p.attendanceRate * 100)}%`}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
             </>
           ) : (
             <Card>
