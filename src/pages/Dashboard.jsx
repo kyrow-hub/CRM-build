@@ -1,22 +1,63 @@
-import { Target, Handshake, DollarSign, Calendar, Activity } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Users, Share2, Calendar, Target, Activity, FileText, Award, Sparkles } from 'lucide-react'
 import StatCard from '../components/ui/StatCard.jsx'
 import Card from '../components/ui/Card.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
+import { getDashboardStats, getRecentActivity } from '../services/dashboardService.js'
 
-const STATS = [
-  { label: 'Total Leads', value: '0', meta: 'No leads yet', icon: Target, tone: 'blue' },
-  { label: 'Active Deals', value: '0', meta: 'No deals in pipeline', icon: Handshake, tone: 'purple' },
-  { label: 'Revenue', value: '$0', meta: 'This quarter', icon: DollarSign, tone: 'green' },
-  { label: 'Meetings This Week', value: '0', meta: 'Nothing scheduled', icon: Calendar, tone: 'orange' },
-]
+const ACTIVITY_ICON = {
+  'Case Note': FileText,
+  'Case Activity': Activity,
+  Meeting: Calendar,
+  Referral: Share2,
+  Outcome: Award,
+  'Good News': Sparkles,
+}
+
+const ACTIVITY_TONE = {
+  'Case Note': 'blue',
+  'Case Activity': 'purple',
+  Meeting: 'orange',
+  Referral: 'teal',
+  Outcome: 'pink',
+  'Good News': 'lime',
+}
 
 export default function Dashboard() {
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [stats, setStats] = useState({ activeClients: 0, totalLeads: 0, referralsThisWeek: 0, meetingsThisWeek: 0 })
+  const [activity, setActivity] = useState([])
+
+  useEffect(() => {
+    Promise.all([getDashboardStats(), getRecentActivity()])
+      .then(([statsResult, activityResult]) => {
+        setStats(statsResult)
+        setActivity(activityResult)
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const statCards = [
+    { label: 'Active Clients', value: stats.activeClients, meta: 'Currently active, not archived', icon: Users, tone: 'blue' },
+    { label: 'Total Leads', value: stats.totalLeads, meta: 'Across all statuses', icon: Target, tone: 'purple' },
+    { label: 'Referrals This Week', value: stats.referralsThisWeek, meta: 'Received since Monday', icon: Share2, tone: 'teal' },
+    { label: 'Meetings This Week', value: stats.meetingsThisWeek, meta: 'Scheduled this week', icon: Calendar, tone: 'orange' },
+  ]
+
   return (
     <>
       <div className="stats-grid">
-        {STATS.map((stat, i) => (
+        {statCards.map((stat, i) => (
           <div key={stat.label} className="fade-up" style={{ animationDelay: `${i * 80}ms` }}>
-            <StatCard {...stat} />
+            <StatCard
+              label={stat.label}
+              value={loading ? '—' : String(stat.value)}
+              meta={loading ? 'Loading...' : stat.meta}
+              icon={stat.icon}
+              tone={stat.tone}
+            />
           </div>
         ))}
       </div>
@@ -29,12 +70,38 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <Card>
-          <EmptyState
-            icon={Activity}
-            title="No recent activity yet"
-            text="Once you start adding leads, deals, and meetings, your activity will show up here."
-          />
+        <Card style={!loading && !error && activity.length === 0 ? undefined : { padding: 0 }}>
+          {loading ? (
+            <EmptyState icon={Activity} title="Loading..." text="Fetching recent activity." />
+          ) : error ? (
+            <EmptyState icon={Activity} title="Couldn't load recent activity" text={error} />
+          ) : activity.length === 0 ? (
+            <EmptyState
+              icon={Activity}
+              title="No recent activity yet"
+              text="Once you start adding clients, referrals, meetings, and case notes, your activity will show up here."
+            />
+          ) : (
+            <div className="note-list">
+              {activity.map((item) => {
+                const Icon = ACTIVITY_ICON[item.type] ?? Activity
+                return (
+                  <div className="note-item" key={item.id}>
+                    <div className="note-item-meta">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div className={`stat-card-icon stat-card-icon--${ACTIVITY_TONE[item.type] ?? 'blue'}`} style={{ width: 26, height: 26 }}>
+                          <Icon strokeWidth={2} style={{ width: 13, height: 13 }} />
+                        </div>
+                        <span>{item.type}</span>
+                      </div>
+                      <span>{new Date(item.date).toLocaleString()}</span>
+                    </div>
+                    <div className="note-item-text">{item.description}</div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </Card>
       </div>
     </>
