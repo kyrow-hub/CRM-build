@@ -1,70 +1,75 @@
 # Development Audit
 
-This audit was performed before the Supabase/authentication/Clients-module work in this
-change. It reflects the state of the codebase as a pure React + Vite front-end shell, with
-no backend, no persistence, and no authentication. A short "Status after this stage" note
-is appended at the end describing what changed as a direct result of this audit.
+This document is a reference for what's actually built and wired to Supabase in the Bori
+Muy CRM, page by page. It is kept up to date as features ship — if you add or change a
+page/tab, update the relevant row here in the same change.
 
 ## Summary
 
-Everything in the app prior to this stage ran on mock data or local component state
-(`useState`) only. Nothing persisted across a page reload. There was no backend, no
-authentication, and no access control of any kind — anyone with the URL could see and
-"edit" everything, and every edit vanished on refresh.
+Every page, and every tab on the Client Detail screen, is backed by real Supabase tables
+(and, for Documents, Supabase Storage) with Row Level Security enforced. There is no mock
+data and no local-only state left in the app — a page refresh never loses data. Access is
+gated by Supabase Auth plus role-based RLS policies (see `supabase/migrations/`).
 
 ## Page-by-page
 
-| Page | State | Notes |
+| Page | Backing | Notes |
 |---|---|---|
-| Dashboard | **Placeholder** | Stat cards (Total Leads, Active Deals, Revenue, Meetings This Week) are hardcoded to `0`/`$0`. "Recent Activity" is a static empty state. Nothing is wired to any data source. |
-| Login | **Did not exist** | No authentication existed anywhere in the app. |
-| Leads | **Working (mock data)** | Real search/filter across 10 hardcoded lead records (`src/data/mockLeads.js`). No detail page, no add/edit, no persistence. |
-| Clients (list) | **Working (mock data)** | Real search/filter across 10 hardcoded client records (`src/data/mockClients.js`). Row click navigates to detail. No add/edit/archive; nothing persists. |
-| Client Detail | **Partially working (mock + local state)** | Header reads from the mock record. Tabs: *Details* — local-only demographic intake form (`ClientDetailsPanel`), edits held in component state, lost on navigation/reload. *Case Notes* and *Goals & Outcomes* — real add/list forms, but local state only, reset whenever you navigate to a different client or reload. *Activities, Referrals, Staff Register, Programs, Follow Ups, Documents, Service Delivery* — static empty-state shells with no logic at all. |
-| Partners / Partner Detail | **Working (mock data + React Context)** | Add partner / add contact are real, backed by a `PartnersContext` so state survives navigation between the list and detail pages within a session — but resets on reload. CSV export (mail merge) is genuinely functional and file-verified. No backend. |
-| Attendance Register | **Working (local state)** | Add attendance / add note forms are real but state is page-local; resets on navigation away or reload. "Service Delivery" sub-tab is a static empty state. |
-| Reports | **Placeholder** | All stat cards hardcoded to `0`. Tabs render static empty-state text only — not wired to any of the (already ephemeral) data entered elsewhere in the app. |
-| Meetings | **Placeholder** | Static empty state, no logic. |
-| Email | **Placeholder** | Static empty state, no logic. |
-| Settings | **Placeholder** | Static empty state, no logic. |
+| Login | Supabase Auth | Email/password sign in; unauthenticated users are redirected here by `ProtectedRoute`. |
+| Dashboard | `clients`, `leads`, `referrals`, `meetings`, `client_notes`, `case_activities`, `client_outcomes`, `good_news_stories` | Active Clients / Total Leads / Referrals This Week / Meetings This Week stat cards, plus a real recent-activity feed aggregated across several tables. |
+| Leads | `leads` | Full CRUD, search, filtering. |
+| Clients (list) | `clients` | Full CRUD, search, status filtering, archive. |
+| Client Detail | `clients` + tab-specific tables (below) | Header/details editable; each tab is its own panel. |
+| Partners / Partner Detail | `partners` | Full CRUD, CSV export. |
+| Attendance Register | `programs`, `program_sessions`, `attendance`, `client_notes` | Group session creation (including overnight-camp flag), roster attendance marking, and a Notes tab that writes into `client_notes` with a category. |
+| Reports | See "Reports tabs" below | 14 tabs, all reading live data; CSV/XLSX export on every tab. |
+| Meetings | `meetings` | Full CRUD. |
+| Email | `client_emails` | Sending via the `send-email` Edge Function (Resend); receiving via the `receive-email` Edge Function (Resend inbound webhook, Svix-signature verified). |
+| Settings | `profiles` | Own-profile editing; administrators/managers can view and change other users' roles and active status via Team Management. |
 
-## Components, context, data, and utilities
+## Client Detail tabs
 
-- **`context/PartnersContext.jsx`** — the only piece of cross-page state in the app prior to this stage. Everything else is either module-scoped mock arrays (read-only, imported directly by pages) or page-local `useState`.
-- **`data/mock*.js`** (`mockClients`, `mockLeads`, `mockPartners`, `mockPrograms`) — static arrays, no persistence, no relationship to any backend.
-- **`components/ui/*`** — a small, consistent design-system kit (Button, Card, EmptyState, Input, PlaceholderPage, StatCard, StatusPill). All presentational, no data logic. Reusable and kept as-is.
-- **`components/client/*`** (`CaseNotesPanel`, `GoalsOutcomesPanel`, `ClientDetailsPanel`) — real forms with real local state, but not persisted.
-- **`utils/exportCsv.js`, `utils/initials.js`** — pure functions, no data-source dependency, reusable as-is.
-- No `lib/`, `services/`, `hooks/`, or auth-related folders existed. No environment variable handling existed. `.gitignore` did not exclude `.env`.
-- No form validation beyond "is this field non-empty" in a couple of places; no server-side validation anywhere (there was no server).
-- No notification/toast system existed anywhere in the app.
+| Tab | Backing | Notes |
+|---|---|---|
+| Details | `clients` | Editable via the header "Edit" form. |
+| Activities | `case_activities` | Confidentiality-aware (private entries visible only to their author and admins/managers). |
+| Case Notes | `client_notes` | Category dropdown backed by `src/data/noteCategories.js` (16 service-delivery categories); confidentiality-aware. |
+| Referrals | `referrals` | Full CRUD. |
+| Goals & Outcomes | `client_goals` | Full CRUD. |
+| Outcomes | `client_outcomes` | Confidentiality-aware. |
+| Staff Register | `client_staff_assignments` | Role-on-case assignments (Primary Case Worker, Program Worker, etc.), unique per client/worker/role. |
+| Programs | derived from `attendance` + `program_sessions` | Read-only summary of program involvement (sessions attended, first/last date); no separate table. |
+| Follow Ups | `client_follow_ups` | Pending/Completed/Cancelled workflow with overdue detection. |
+| Documents | `client_documents` + `client-documents` Storage bucket | Upload/download/delete with confidentiality-aware RLS mirrored at the storage layer. |
 
-## Security posture (before this stage)
+## Reports tabs
 
-- No authentication. No concept of a logged-in user.
-- No row-level or role-based access control — not applicable, since there was no data store.
-- No secrets, keys, or environment variables were in use (none were needed).
+Case Notes, Activities, Referrals, Goals & Outcomes, Outcomes, Service Delivery (Case
+Notes grouped by category), Demographics, KPI Report, Program Performance, Overnight Camp
+Report, Group Note Report, Good News Stories, Group Attendance, and Full Service Report
+(one combined multi-sheet spreadsheet across all of the above). All are client-side
+aggregations over existing tables except Full Service Report, which reuses the
+already-fetched data from the other tabs.
 
-## Risk callouts
+## Security posture
 
-- Because every list page (Clients, Leads, Partners) used **mock, non-persistent data**, none of it should be mistaken for real records — this was purely a visual/interaction prototype.
-- The `ClientDetailsPanel` demographic intake form duplicated fields that overlap with the real `clients` table introduced in this stage (DOB, gender, indigenous status, address, emergency contact, etc.) — see "Status after this stage" below for how this was resolved.
+- Row Level Security is enabled on every table; policies are defined per migration in
+  `supabase/migrations/` and generally follow one of two shapes:
+  - **Confidentiality-aware** (`case_activities`, `client_outcomes`, `client_notes` where
+    applicable, `client_documents`): a `confidential` flag restricts visibility to the
+    author and administrators/managers.
+  - **Standard editable roster** (most other tables): any active profile can read, editors
+    (`can_edit_records()`) can insert/update, and only administrators/managers can delete.
+- New signups default to the lowest-privilege `viewer` role. Nobody can self-promote — a
+  BEFORE UPDATE trigger (`guard_profile_privilege_columns`, migration `0009`) blocks a user
+  from changing their own `role` or `active` columns, even via a direct SQL update.
+- The Resend service-role key and API key exist only as Supabase Edge Function secrets and
+  never reach the frontend. The inbound-email function verifies Resend's Svix webhook
+  signature before writing anything.
+- Supabase Storage documents use signed URLs (60s expiry) rather than public URLs, and
+  bucket RLS policies join back to `client_documents` to enforce the same confidentiality
+  rule at the storage layer.
 
----
+## Project structure
 
-## Status after this stage
-
-As a direct result of this audit, the following moved from mock/local-state to a real
-Supabase-backed implementation in this same change:
-
-- **Authentication**: `AuthContext`, `Login` page, `ProtectedRoute` — all routes now require a signed-in Supabase session.
-- **Clients module**: `Clients.jsx` and `ClientDetail.jsx` now read/write real `clients` rows via `services/clientService.js` (list/search/filter/create/update/archive), with loading, error, empty, and validation states, and success/error toasts via a new `ToastContext`.
-- **`ClientDetailsPanel` was removed** — its fields are now the real, editable client record (shown in the "Details" tab and the header of `ClientDetail.jsx`), so the old local-only duplicate was deleted rather than left dangling.
-- The global header client search and the client-detail page title (in `Layout.jsx`) were also switched from mock data to the real client service, since leaving them on mock data would have silently broken navigation (mock IDs are numbers; Supabase IDs are UUIDs).
-
-**Still mock/local-state, unchanged in this stage** (out of the explicit scope for this
-pass): Dashboard stats, Leads, Partners, Attendance Register, Reports, Meetings, Email,
-Settings, and the Case Notes / Goals & Outcomes / Activities / Referrals / Staff Register /
-Programs / Follow Ups / Documents / Service Delivery tabs on Client Detail. The database
-migration provisions tables for programs, program_sessions, attendance, and client_notes
-so these can be wired up in a future stage, but no frontend code was connected to them yet.
+See `README.md` for the up-to-date directory layout and local setup instructions.

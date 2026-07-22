@@ -3,8 +3,8 @@
 A React + Vite CRM for Bori Muy LTD, backed by [Supabase](https://supabase.com) for
 authentication, database, and Row Level Security.
 
-See [`DEVELOPMENT_AUDIT.md`](./DEVELOPMENT_AUDIT.md) for a full breakdown of what's real
-vs. mock/placeholder in the current build.
+See [`DEVELOPMENT_AUDIT.md`](./DEVELOPMENT_AUDIT.md) for a full page-by-page and
+tab-by-tab breakdown of what's built and how it's secured.
 
 ## Installation
 
@@ -185,5 +185,4 @@ Register/Group Sessions, Reports (including the KPI, Program Performance, Overni
 Camp, Group Note, Group Attendance, Good News Stories, and Full Service Report tabs),
 Leads, Partners, Meetings, Email (sending via Resend and receiving via an inbound
 webhook - see above), and Settings (profile editing and team/role management). See
-`DEVELOPMENT_AUDIT.md` for the original page-by-page breakdown, though note it was
-written early on and hasn't been kept fully in sync with every migration since.
+`DEVELOPMENT_AUDIT.md` for the current page-by-page and tab-by-tab breakdown.
