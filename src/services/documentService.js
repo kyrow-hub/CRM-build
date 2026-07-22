@@ -13,7 +13,7 @@ export async function listClientDocuments(clientId) {
   return data
 }
 
-export async function uploadDocument({ clientId = null, referralId = null, file, confidential, uploadedBy }) {
+export async function uploadDocument({ clientId = null, referralId = null, documentType = null, file, confidential, uploadedBy }) {
   if (!clientId && !referralId) throw new Error('A client or referral is required.')
   const documentId = crypto.randomUUID()
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
@@ -32,6 +32,7 @@ export async function uploadDocument({ clientId = null, referralId = null, file,
       id: documentId,
       client_id: clientId,
       referral_id: referralId,
+      document_type: documentType || null,
       file_name: file.name,
       file_path: filePath,
       file_size: file.size,
@@ -51,8 +52,8 @@ export async function uploadDocument({ clientId = null, referralId = null, file,
   return data
 }
 
-export async function uploadClientDocument({ clientId, file, confidential, uploadedBy }) {
-  return uploadDocument({ clientId, file, confidential, uploadedBy })
+export async function uploadClientDocument({ clientId, documentType, file, confidential, uploadedBy }) {
+  return uploadDocument({ clientId, documentType, file, confidential, uploadedBy })
 }
 
 export async function listReferralDocuments(referralId) {
@@ -61,6 +62,14 @@ export async function listReferralDocuments(referralId) {
     .select(DOCUMENT_COLUMNS)
     .eq('referral_id', referralId)
     .order('created_at', { ascending: false })
+  if (error) throw error
+  return data
+}
+
+// Every document across every client, for the Reports/Dashboard
+// compliance rollup.
+export async function listAllDocuments() {
+  const { data, error } = await supabase.from('client_documents').select(DOCUMENT_COLUMNS).not('client_id', 'is', null)
   if (error) throw error
   return data
 }

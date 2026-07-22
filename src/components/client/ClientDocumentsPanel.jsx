@@ -6,6 +6,7 @@ import EmptyState from '../ui/EmptyState.jsx'
 import StatusPill from '../ui/StatusPill.jsx'
 import { useClientDocuments } from '../../hooks/useClientDocuments.js'
 import { uploadClientDocument, getDocumentDownloadUrl, deleteClientDocument } from '../../services/documentService.js'
+import { DOCUMENT_TYPES } from '../../data/documentTypes.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 
@@ -21,6 +22,7 @@ export default function ClientDocumentsPanel({ clientId, clientName }) {
   const toast = useToast()
   const { documents, loading, error, refetch } = useClientDocuments(clientId)
   const fileInputRef = useRef(null)
+  const [documentType, setDocumentType] = useState(DOCUMENT_TYPES[0])
   const [confidential, setConfidential] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [downloadingId, setDownloadingId] = useState(null)
@@ -33,7 +35,7 @@ export default function ClientDocumentsPanel({ clientId, clientName }) {
     if (!file) return
     setUploading(true)
     try {
-      await uploadClientDocument({ clientId, file, confidential, uploadedBy: user?.id })
+      await uploadClientDocument({ clientId, documentType, file, confidential, uploadedBy: user?.id })
       toast.success('Document uploaded.')
       setConfidential(false)
       refetch()
@@ -82,7 +84,14 @@ export default function ClientDocumentsPanel({ clientId, clientName }) {
               : `${documents.length} ${documents.length === 1 ? 'document' : 'documents'} for ${clientName}`}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <select className="input" style={{ width: 180 }} value={documentType} onChange={(e) => setDocumentType(e.target.value)}>
+            {DOCUMENT_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
           <label className="checkbox-field" style={{ marginTop: 0 }}>
             <input type="checkbox" checked={confidential} onChange={(e) => setConfidential(e.target.checked)} />
             <span>Confidential</span>
@@ -127,6 +136,7 @@ export default function ClientDocumentsPanel({ clientId, clientName }) {
                       <span>
                         {d.file_name} · {formatFileSize(d.file_size)} · {uploaderName}
                       </span>
+                      {d.document_type && <StatusPill tone="info">{d.document_type}</StatusPill>}
                       {d.confidential && <StatusPill tone="danger">Confidential</StatusPill>}
                     </div>
                     <span>{new Date(d.created_at).toLocaleDateString()}</span>

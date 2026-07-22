@@ -36,6 +36,27 @@ export async function listAttendanceRecords() {
   return data
 }
 
+export async function listAttendanceRecordsForClient(clientId) {
+  const { data, error } = await supabase
+    .from('attendance')
+    .select('id, attendance_status, session:program_sessions(id, session_date, overnight_camp)')
+    .eq('client_id', clientId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data
+}
+
+// Every attendance record system-wide with just the fields needed for
+// compliance (last service date, camp attendance) - avoids the heavier
+// client/program join used by listAttendanceRecords.
+export async function listAllAttendanceForCompliance() {
+  const { data, error } = await supabase
+    .from('attendance')
+    .select('client_id, attendance_status, session:program_sessions(session_date, overnight_camp)')
+  if (error) throw error
+  return data
+}
+
 export async function createAttendanceRecord(input) {
   const { data, error } = await supabase.from('attendance').insert(input).select(ATTENDANCE_COLUMNS).single()
   if (error) throw error

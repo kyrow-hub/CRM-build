@@ -663,6 +663,12 @@ button {
   color: #e879f9;
 }
 
+.avatar--sky,
+.stat-card-icon--sky {
+  background: rgba(56, 189, 248, 0.14);
+  color: #38bdf8;
+}
+
 .clients-cell-muted {
   color: var(--muted);
   font-size: 13px;

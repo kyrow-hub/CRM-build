@@ -12,6 +12,12 @@ export async function listClientFollowUps(clientId) {
   return data
 }
 
+export async function listAllFollowUps() {
+  const { data, error } = await supabase.from('client_follow_ups').select('id, client_id, title, status, due_date')
+  if (error) throw error
+  return data
+}
+
 export async function createFollowUp(input) {
   if (!input.title?.trim()) throw new Error('Title is required.')
   if (!input.due_date) throw new Error('Due date is required.')

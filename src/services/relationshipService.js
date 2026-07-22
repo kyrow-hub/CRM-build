@@ -11,6 +11,12 @@ export async function listClientRelationships(clientId) {
   return data
 }
 
+export async function listAllRelationships() {
+  const { data, error } = await supabase.from('client_relationships').select('client_id, relationship_type, is_primary_contact')
+  if (error) throw error
+  return data
+}
+
 export async function createRelationship(input) {
   if (!input.relationship_type?.trim()) throw new Error('Relationship is required.')
   if (!input.full_name?.trim()) throw new Error('Name is required.')

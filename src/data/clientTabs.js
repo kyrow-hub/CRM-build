@@ -11,6 +11,7 @@ import {
   Folder,
   Users,
   ClipboardCheck,
+  ShieldCheck,
 } from 'lucide-react'
 
 export const CLIENT_TABS = [
@@ -97,5 +98,12 @@ export const CLIENT_TABS = [
     icon: Folder,
     emptyTitle: 'No documents uploaded',
     emptyText: 'Files and documents related to this client will appear here.',
+  },
+  {
+    key: 'compliance',
+    label: 'Compliance',
+    icon: ShieldCheck,
+    emptyTitle: 'Compliance not calculated yet',
+    emptyText: 'Automated compliance status for this client will appear here.',
   },
 ]

@@ -125,6 +125,18 @@ export async function countOverdueReviews() {
   return count ?? 0
 }
 
+// Returns every client (including archived/closed ones) with the fields
+// the compliance engine needs, for the Reports/Dashboard rollup.
+export async function listClientsForCompliance() {
+  const { data, error } = await supabase
+    .from('clients')
+    .select(
+      'id, first_name, last_name, status, archived_at, date_of_birth, gender, address, indigenous_status, cultural_background, risk_level, referral_source, emergency_contact_name, emergency_contact_phone, assigned_worker_id, next_review_date, exit_reason, assigned_worker:profiles!assigned_worker_id(id, first_name, last_name)',
+    )
+  if (error) throw error
+  return data
+}
+
 export async function listAssignableWorkers() {
   const { data, error } = await supabase
     .from('profiles')

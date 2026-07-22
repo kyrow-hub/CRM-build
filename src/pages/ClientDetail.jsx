@@ -17,7 +17,9 @@ import ClientDocumentsPanel from '../components/client/ClientDocumentsPanel.jsx'
 import ClientStaffRegisterPanel from '../components/client/ClientStaffRegisterPanel.jsx'
 import ClientFollowUpsPanel from '../components/client/ClientFollowUpsPanel.jsx'
 import ClientAssessmentsPanel from '../components/client/ClientAssessmentsPanel.jsx'
+import ClientCompliancePanel from '../components/client/ClientCompliancePanel.jsx'
 import { getClientById, updateClient, archiveClient, listAssignableWorkers } from '../services/clientService.js'
+import { getExitReadiness } from '../services/complianceService.js'
 import { useToast } from '../context/ToastContext.jsx'
 import { initials } from '../utils/initials.js'
 import { avatarTone } from '../utils/avatarColor.js'
@@ -92,7 +94,17 @@ export default function ClientDetail() {
   }
 
   const handleArchive = async () => {
-    if (!window.confirm('Archive this client? Archived clients are hidden from the active list but not deleted.')) {
+    let confirmMessage = 'Archive this client? Archived clients are hidden from the active list but not deleted.'
+    try {
+      const { exitChecks, exitReady } = await getExitReadiness(client)
+      if (!exitReady) {
+        const missing = exitChecks.filter((c) => !c.pass).map((c) => `- ${c.label}`).join('\n')
+        confirmMessage = `This client's exit checklist isn't complete:\n${missing}\n\nArchive anyway? Archived clients are hidden from the active list but not deleted.`
+      }
+    } catch {
+      // If the readiness check itself fails (e.g. offline), fall back to the plain confirmation rather than blocking the archive entirely.
+    }
+    if (!window.confirm(confirmMessage)) {
       return
     }
     try {
@@ -258,6 +270,8 @@ export default function ClientDetail() {
             <ClientProgramsPanel key={client.id} clientId={client.id} clientName={fullName} />
           ) : activeTab === 'documents' ? (
             <ClientDocumentsPanel key={client.id} clientId={client.id} clientName={fullName} />
+          ) : activeTab === 'compliance' ? (
+            <ClientCompliancePanel key={client.id} client={client} clientName={fullName} />
           ) : activeTab === 'staff-register' ? (
             <ClientStaffRegisterPanel key={client.id} clientId={client.id} clientName={fullName} />
           ) : activeTab === 'assessments' ? (

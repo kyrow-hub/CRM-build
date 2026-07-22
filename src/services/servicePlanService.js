@@ -23,6 +23,12 @@ export async function createServicePlanItem(input) {
   return data
 }
 
+export async function listAllServicePlanItems() {
+  const { data, error } = await supabase.from('client_service_plan_items').select('client_id, service_type, status')
+  if (error) throw error
+  return data
+}
+
 export async function updateServicePlanItemStatus(id, status) {
   const { data, error } = await supabase
     .from('client_service_plan_items')

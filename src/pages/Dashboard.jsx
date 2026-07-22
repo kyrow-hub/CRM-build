@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Users, Share2, Calendar, Target, Activity, FileText, Award, Sparkles, CalendarClock } from 'lucide-react'
+import { Users, Share2, Calendar, Target, Activity, FileText, Award, Sparkles, CalendarClock, ShieldAlert } from 'lucide-react'
 import StatCard from '../components/ui/StatCard.jsx'
 import Card from '../components/ui/Card.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
 import { getDashboardStats, getRecentActivity } from '../services/dashboardService.js'
+import { getComplianceSummary } from '../services/complianceService.js'
 
 const ACTIVITY_ICON = {
   'Case Note': FileText,
@@ -28,12 +29,14 @@ export default function Dashboard() {
   const [error, setError] = useState(null)
   const [stats, setStats] = useState({ activeClients: 0, totalLeads: 0, referralsThisWeek: 0, meetingsThisWeek: 0, reviewsOverdue: 0 })
   const [activity, setActivity] = useState([])
+  const [complianceAlerts, setComplianceAlerts] = useState(0)
 
   useEffect(() => {
-    Promise.all([getDashboardStats(), getRecentActivity()])
-      .then(([statsResult, activityResult]) => {
+    Promise.all([getDashboardStats(), getRecentActivity(), getComplianceSummary()])
+      .then(([statsResult, activityResult, complianceResult]) => {
         setStats(statsResult)
         setActivity(activityResult)
+        setComplianceAlerts(complianceResult.totals.criticalAlerts ?? 0)
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
@@ -50,6 +53,13 @@ export default function Dashboard() {
       meta: stats.reviewsOverdue > 0 ? 'Needs a review assessment' : 'All caught up',
       icon: CalendarClock,
       tone: stats.reviewsOverdue > 0 ? 'red' : 'green',
+    },
+    {
+      label: 'Compliance Alerts',
+      value: complianceAlerts,
+      meta: complianceAlerts > 0 ? 'Critical items across active clients' : 'No critical alerts',
+      icon: ShieldAlert,
+      tone: complianceAlerts > 0 ? 'red' : 'green',
     },
   ]
 

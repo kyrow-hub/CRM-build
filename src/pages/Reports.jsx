@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { FileText, Share2, TrendingUp, Award, Activity, PackageCheck, Users, Download, Gauge, BarChart3, Tent, StickyNote, Sparkles, Plus, ClipboardList, ClipboardCheck, CalendarClock, FileSpreadsheet } from 'lucide-react'
+import { FileText, Share2, TrendingUp, Award, Activity, PackageCheck, Users, Download, Gauge, BarChart3, Tent, StickyNote, Sparkles, Plus, ClipboardList, ClipboardCheck, CalendarClock, FileSpreadsheet, ShieldCheck } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import Button from '../components/ui/Button.jsx'
 import StatCard from '../components/ui/StatCard.jsx'
@@ -21,6 +21,7 @@ import { listPrograms } from '../services/programService.js'
 import { getGroupAttendanceReport } from '../services/groupAttendanceReportService.js'
 import { listAllAssessments } from '../services/assessmentService.js'
 import { SEWB_DOMAINS } from '../data/assessmentOptions.js'
+import { getComplianceSummary } from '../services/complianceService.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { initials } from '../utils/initials.js'
@@ -34,6 +35,8 @@ const GOAL_STATUS_TONE = {
   Achieved: 'success',
   'Not Achieved': 'danger',
 }
+
+const COMPLIANCE_STATUS_TONE = { Compliant: 'success', 'Attention Required': 'warning', 'Non-Compliant': 'danger' }
 
 const REFERRAL_STATUS_TONE = { Received: 'info', Accepted: 'success', Declined: 'danger' }
 
@@ -62,10 +65,11 @@ const REPORT_TABS = [
   { key: 'good-news', label: 'Good News Stories', icon: Sparkles, tone: 'lime' },
   { key: 'group-attendance', label: 'Group Attendance', icon: ClipboardList, tone: 'amber' },
   { key: 'assessments', label: 'Assessments', icon: ClipboardCheck, tone: 'fuchsia' },
+  { key: 'compliance', label: 'Compliance', icon: ShieldCheck, tone: 'sky' },
   { key: 'full-report', label: 'Full Service Report', icon: FileSpreadsheet, tone: 'rose' },
 ]
 
-const FULL_REPORT_SHEET_COUNT = 13
+const FULL_REPORT_SHEET_COUNT = 14
 
 const ATTENDANCE_STATUS_TONE = {
   Present: 'success',
@@ -285,6 +289,17 @@ function assessmentsToRows(assessments) {
   }))
 }
 
+function complianceToRows(perClient) {
+  return perClient.map(({ client, compliance }) => ({
+    Client: clientName(client),
+    Status: compliance.status,
+    'Score (%)': compliance.score,
+    'Critical Alerts': compliance.alerts.filter((a) => a.tone === 'red').length,
+    'Review Status': compliance.reviewStatus,
+    'Assigned Worker': client.assigned_worker ? [client.assigned_worker.first_name, client.assigned_worker.last_name].filter(Boolean).join(' ') : '',
+  }))
+}
+
 function ExportButton({ rows, filename }) {
   return (
     <Button
@@ -374,6 +389,7 @@ export default function Reports() {
   })
   const [assessments, setAssessments] = useState([])
   const [reviewsDue, setReviewsDue] = useState([])
+  const [complianceSummary, setComplianceSummary] = useState({ perClient: [], totals: {} })
 
   const refetchGoodNewsStories = () => {
     listGoodNewsStories()
@@ -416,6 +432,7 @@ export default function Reports() {
       getGroupAttendanceReport(),
       listAllAssessments(),
       listClientsWithReviewDue(),
+      getComplianceSummary(),
     ])
       .then(
         ([
@@ -442,6 +459,7 @@ export default function Reports() {
           groupAttendanceReportResult,
           allAssessments,
           reviewsDueResult,
+          complianceSummaryResult,
         ]) => {
           setNotesCount(nCount)
           setGoalsCount(gCount)
@@ -466,6 +484,7 @@ export default function Reports() {
           setGroupAttendanceReport(groupAttendanceReportResult)
           setAssessments(allAssessments)
           setReviewsDue(reviewsDueResult)
+          setComplianceSummary(complianceSummaryResult)
         },
       )
       .catch((err) => setLoadError(err.message))
@@ -490,6 +509,7 @@ export default function Reports() {
     'good-news': { label: 'Good News Stories', value: goodNewsStories.length },
     'group-attendance': { label: 'Group Sessions Attended', value: groupAttendanceReport.totalSessions },
     assessments: { label: 'Assessments Recorded', value: assessments.length },
+    compliance: { label: 'Critical Compliance Alerts', value: complianceSummary.totals.criticalAlerts ?? 0 },
     'full-report': { label: 'Report Sections', value: FULL_REPORT_SHEET_COUNT },
   }
 
@@ -619,6 +639,7 @@ export default function Reports() {
         { name: 'Group Attendance', rows: groupAttendanceToRows(groupAttendanceReport.sessions) },
         { name: 'Good News Stories', rows: goodNewsStoriesToRows(goodNewsStories) },
         { name: 'Assessments', rows: assessmentsToRows(assessments) },
+        { name: 'Compliance', rows: complianceToRows(complianceSummary.perClient) },
         { name: 'KPI Summary', rows: kpiToRows(kpiData) },
       ])
       toast.success('Full service report downloaded.')
@@ -643,7 +664,17 @@ export default function Reports() {
             <StatCard
               label={stats[key].label}
               value={loading ? '—' : String(stats[key].value)}
-              meta={loading ? 'Loading...' : stats[key].value === 0 ? 'No data recorded yet' : 'Across all clients'}
+              meta={
+                loading
+                  ? 'Loading...'
+                  : key === 'compliance'
+                    ? stats[key].value === 0
+                      ? 'No critical alerts'
+                      : 'Needs attention'
+                    : stats[key].value === 0
+                      ? 'No data recorded yet'
+                      : 'Across all clients'
+              }
               icon={icon}
               tone={tone}
             />
@@ -1649,6 +1680,95 @@ export default function Reports() {
                 )}
               </Card>
             </>
+          ) : activeTab === 'compliance' ? (
+            <>
+              <ExportButton rows={complianceToRows(complianceSummary.perClient)} filename="compliance-report.csv" />
+              <div className="details-grid" style={{ marginBottom: 18 }}>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Missing Intake
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : complianceSummary.totals.missingIntake ?? 0}
+                  </div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Missing Consent
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : complianceSummary.totals.missingConsent ?? 0}
+                  </div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Reviews Overdue
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : complianceSummary.totals.reviewsOverdue ?? 0}
+                  </div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    No Service in 30 Days
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : complianceSummary.totals.noServiceIn30Days ?? 0}
+                  </div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Missing Exit Assessment
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : complianceSummary.totals.missingExitAssessment ?? 0}
+                  </div>
+                  <div className="data-cell-muted">Closed/archived clients only</div>
+                </Card>
+              </div>
+
+              <Card style={complianceSummary.perClient.length === 0 ? undefined : { padding: 0 }}>
+                {loading ? (
+                  <EmptyState icon={ShieldCheck} title="Loading..." text="Calculating compliance across the caseload." />
+                ) : complianceSummary.perClient.length === 0 ? (
+                  <EmptyState icon={ShieldCheck} title="No clients to assess" text="Compliance scores will appear here once clients are added." />
+                ) : (
+                  <div className="data-table">
+                    <div className="data-row assessments-row data-row--head">
+                      <span>Client</span>
+                      <span>Score</span>
+                      <span>Status</span>
+                      <span>Assigned Worker</span>
+                      <span>Review</span>
+                      <span>Critical Alerts</span>
+                    </div>
+                    {[...complianceSummary.perClient]
+                      .sort((a, b) => a.compliance.score - b.compliance.score)
+                      .map(({ client, compliance }) => {
+                        const workerName = client.assigned_worker
+                          ? [client.assigned_worker.first_name, client.assigned_worker.last_name].filter(Boolean).join(' ')
+                          : 'Unassigned'
+                        const criticalCount = compliance.alerts.filter((a) => a.tone === 'red').length
+                        return (
+                          <Link
+                            to={`/clients/${client.id}`}
+                            className="data-row assessments-row"
+                            key={client.id}
+                            style={{ color: 'inherit', textDecoration: 'none' }}
+                          >
+                            <span>{clientName(client)}</span>
+                            <span className="data-cell-muted">{compliance.score}%</span>
+                            <StatusPill tone={COMPLIANCE_STATUS_TONE[compliance.status]}>{compliance.status}</StatusPill>
+                            <span className="data-cell-muted">{workerName}</span>
+                            <span className="data-cell-muted">{compliance.reviewStatus}</span>
+                            <span className="data-cell-muted">{criticalCount || '—'}</span>
+                          </Link>
+                        )
+                      })}
+                  </div>
+                )}
+              </Card>
+            </>
           ) : activeTab === 'full-report' ? (
             <Card>
               <div className="section-title" style={{ marginBottom: 6 }}>
@@ -1672,6 +1792,7 @@ export default function Reports() {
                   ['Group Attendance', groupAttendanceReport.sessions.length],
                   ['Good News Stories', goodNewsStories.length],
                   ['Assessments', assessments.length],
+                  ['Compliance', complianceSummary.perClient.length],
                   ['KPI Summary', 8],
                 ].map(([label, count]) => (
                   <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5 }}>
