@@ -25,8 +25,8 @@ export function downloadCsv(filename, rows) {
 
 export function partnersToMailMergeRows(partners) {
   return partners.flatMap((partner) =>
-    partner.contacts.map((contact) => ({
-      'Business Name': partner.businessName,
+    (partner.contacts ?? []).map((contact) => ({
+      'Business Name': partner.business_name,
       'Business Address': partner.address,
       'Business Phone': partner.phone,
       'Business Email': partner.email,

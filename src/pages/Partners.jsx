@@ -1,15 +1,18 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Search, Building2, Plus, Download } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import Button from '../components/ui/Button.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
-import { usePartners } from '../context/PartnersContext.jsx'
+import { usePartners } from '../hooks/usePartners.js'
+import { createPartner, addPartnerContact } from '../services/partnerService.js'
+import { useAuth } from '../context/AuthContext.jsx'
+import { useToast } from '../context/ToastContext.jsx'
 import { downloadCsv, partnersToMailMergeRows } from '../utils/exportCsv.js'
 import { initials } from '../utils/initials.js'
 
 const emptyForm = {
-  businessName: '',
+  business_name: '',
   address: '',
   phone: '',
   email: '',
@@ -19,37 +22,42 @@ const emptyForm = {
 }
 
 export default function Partners() {
-  const { partners, addPartner } = usePartners()
+  const { user } = useAuth()
+  const toast = useToast()
   const [query, setQuery] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyForm)
+  const [submitting, setSubmitting] = useState(false)
+  const { partners, loading, error, refetch } = usePartners(query)
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return partners
-    return partners.filter((p) => {
-      const haystack = [p.businessName, p.address, p.email, ...p.contacts.map((c) => `${c.name} ${c.email}`)]
-        .join(' ')
-        .toLowerCase()
-      return haystack.includes(q)
-    })
-  }, [partners, query])
-
-  const handleAdd = (e) => {
+  const handleAdd = async (e) => {
     e.preventDefault()
-    if (!form.businessName.trim()) return
-    const contacts = form.contactName.trim()
-      ? [{ id: Date.now(), name: form.contactName.trim(), phone: form.contactPhone, email: form.contactEmail }]
-      : []
-    addPartner({
-      businessName: form.businessName.trim(),
-      address: form.address,
-      phone: form.phone,
-      email: form.email,
-      contacts,
-    })
-    setForm(emptyForm)
-    setShowForm(false)
+    setSubmitting(true)
+    try {
+      const partner = await createPartner({
+        business_name: form.business_name.trim(),
+        address: form.address,
+        phone: form.phone,
+        email: form.email,
+        created_by: user?.id,
+      })
+      if (form.contactName.trim()) {
+        await addPartnerContact(partner.id, {
+          name: form.contactName.trim(),
+          phone: form.contactPhone,
+          email: form.contactEmail,
+          created_by: user?.id,
+        })
+      }
+      toast.success('Partner added.')
+      setForm(emptyForm)
+      setShowForm(false)
+      refetch()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const handleExportAll = () => {
@@ -61,7 +69,7 @@ export default function Partners() {
       <div className="section-head">
         <div>
           <div className="section-title">All Partners</div>
-          <div className="section-subtitle">{partners.length} total partners</div>
+          <div className="section-subtitle">{loading ? 'Loading...' : `${partners.length} total partners`}</div>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <div className="search-input" style={{ width: 220 }}>
@@ -96,8 +104,8 @@ export default function Partners() {
                 <input
                   id="p-businessName"
                   className="input"
-                  value={form.businessName}
-                  onChange={(e) => setForm((f) => ({ ...f, businessName: e.target.value }))}
+                  value={form.business_name}
+                  onChange={(e) => setForm((f) => ({ ...f, business_name: e.target.value }))}
                   required
                 />
               </div>
@@ -176,14 +184,20 @@ export default function Partners() {
               <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>
                 Cancel
               </Button>
-              <Button type="submit">Save Partner</Button>
+              <Button type="submit" disabled={submitting}>
+                {submitting ? 'Saving...' : 'Save Partner'}
+              </Button>
             </div>
           </form>
         </Card>
       )}
 
       <Card style={{ padding: 0 }}>
-        {filtered.length === 0 ? (
+        {loading ? (
+          <EmptyState icon={Building2} title="Loading partners..." text="Fetching the latest partner records." />
+        ) : error ? (
+          <EmptyState icon={Building2} title="Couldn't load partners" text={error} />
+        ) : partners.length === 0 ? (
           <EmptyState
             icon={Building2}
             title="No partners found"
@@ -198,11 +212,11 @@ export default function Partners() {
               <span className="partners-col-email">Email</span>
               <span>Contacts</span>
             </div>
-            {filtered.map((p) => (
+            {partners.map((p) => (
               <Link to={`/partners/${p.id}`} className="data-row partners-row clients-row--clickable" key={p.id}>
                 <div className="client-identity">
-                  <div className="client-avatar">{initials(p.businessName)}</div>
-                  <span>{p.businessName}</span>
+                  <div className="client-avatar">{initials(p.business_name)}</div>
+                  <span>{p.business_name}</span>
                 </div>
                 <span className="data-cell-muted partners-col-address">{p.address}</span>
                 <span className="data-cell-muted">{p.phone}</span>

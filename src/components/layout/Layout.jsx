@@ -3,7 +3,7 @@ import { useLocation, useMatch, Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar.jsx'
 import Header from './Header.jsx'
 import { getClientById } from '../../services/clientService.js'
-import { usePartners } from '../../context/PartnersContext.jsx'
+import { getPartnerById } from '../../services/partnerService.js'
 
 const PAGE_META = {
   '/': { title: 'Dashboard', subtitle: 'Overview of your pipeline' },
@@ -21,8 +21,8 @@ export default function Layout() {
   const { pathname } = useLocation()
   const clientMatch = useMatch('/clients/:id')
   const partnerMatch = useMatch('/partners/:id')
-  const { partners } = usePartners()
   const [clientMeta, setClientMeta] = useState(null)
+  const [partnerMeta, setPartnerMeta] = useState(null)
 
   useEffect(() => {
     if (!clientMatch) {
@@ -44,6 +44,25 @@ export default function Layout() {
     }
   }, [clientMatch])
 
+  useEffect(() => {
+    if (!partnerMatch) {
+      setPartnerMeta(null)
+      return
+    }
+    let cancelled = false
+    getPartnerById(partnerMatch.params.id)
+      .then((partner) => {
+        if (cancelled) return
+        setPartnerMeta({ title: partner.business_name, subtitle: partner.address })
+      })
+      .catch(() => {
+        if (!cancelled) setPartnerMeta({ title: 'Partner not found' })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [partnerMatch])
+
   let meta = PAGE_META[pathname]
 
   if (!meta && clientMatch) {
@@ -51,8 +70,7 @@ export default function Layout() {
   }
 
   if (!meta && partnerMatch) {
-    const partner = partners.find((p) => String(p.id) === partnerMatch.params.id)
-    meta = partner ? { title: partner.businessName, subtitle: partner.address } : { title: 'Partner not found' }
+    meta = partnerMeta ?? { title: 'Loading...' }
   }
 
   meta = meta ?? { title: 'Coral CRM' }

@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, MapPin, Phone, Mail, Plus, Download, Users } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import Button from '../components/ui/Button.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
-import { usePartners } from '../context/PartnersContext.jsx'
+import { getPartnerById, addPartnerContact } from '../services/partnerService.js'
+import { useAuth } from '../context/AuthContext.jsx'
+import { useToast } from '../context/ToastContext.jsx'
 import { downloadCsv, partnersToMailMergeRows } from '../utils/exportCsv.js'
 import { initials } from '../utils/initials.js'
 
@@ -12,12 +14,58 @@ const emptyForm = { name: '', phone: '', email: '' }
 
 export default function PartnerDetail() {
   const { id } = useParams()
-  const { partners, addContact } = usePartners()
-  const partner = partners.find((p) => String(p.id) === id)
+  const { user } = useAuth()
+  const toast = useToast()
+  const [partner, setPartner] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyForm)
+  const [submitting, setSubmitting] = useState(false)
 
-  if (!partner) {
+  const refetch = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await getPartnerById(id)
+      setPartner(data)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [id])
+
+  useEffect(() => {
+    refetch()
+  }, [refetch])
+
+  const handleAdd = async (e) => {
+    e.preventDefault()
+    setSubmitting(true)
+    try {
+      await addPartnerContact(id, {
+        name: form.name.trim(),
+        phone: form.phone,
+        email: form.email,
+        created_by: user?.id,
+      })
+      toast.success('Contact added.')
+      setForm(emptyForm)
+      setShowForm(false)
+      refetch()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleExport = () => {
+    downloadCsv(`${partner.business_name}-contacts.csv`, partnersToMailMergeRows([partner]))
+  }
+
+  if (loading) {
     return (
       <div className="fade-up">
         <Link to="/partners" className="back-link">
@@ -26,23 +74,27 @@ export default function PartnerDetail() {
         </Link>
         <div style={{ marginTop: 20 }}>
           <Card>
-            <EmptyState title="Partner not found" text="This partner may have been removed." />
+            <EmptyState title="Loading partner..." text="Fetching the latest partner details." />
           </Card>
         </div>
       </div>
     )
   }
 
-  const handleAdd = (e) => {
-    e.preventDefault()
-    if (!form.name.trim()) return
-    addContact(partner.id, { name: form.name.trim(), phone: form.phone, email: form.email })
-    setForm(emptyForm)
-    setShowForm(false)
-  }
-
-  const handleExport = () => {
-    downloadCsv(`${partner.businessName}-contacts.csv`, partnersToMailMergeRows([partner]))
+  if (error || !partner) {
+    return (
+      <div className="fade-up">
+        <Link to="/partners" className="back-link">
+          <ArrowLeft strokeWidth={2} />
+          <span>Back to Partners</span>
+        </Link>
+        <div style={{ marginTop: 20 }}>
+          <Card>
+            <EmptyState title="Partner not found" text={error || 'This partner may have been removed.'} />
+          </Card>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -58,9 +110,9 @@ export default function PartnerDetail() {
         <Card>
           <div className="client-detail-header">
             <div className="client-detail-identity">
-              <div className="client-detail-avatar">{initials(partner.businessName)}</div>
+              <div className="client-detail-avatar">{initials(partner.business_name)}</div>
               <div className="client-detail-meta">
-                <div className="client-detail-name">{partner.businessName}</div>
+                <div className="client-detail-name">{partner.business_name}</div>
                 <div className="client-detail-sub">
                   {partner.address && (
                     <span className="client-detail-sub-item">
@@ -93,7 +145,7 @@ export default function PartnerDetail() {
             <div className="section-title">Contacts</div>
             <div className="section-subtitle">
               {partner.contacts.length} {partner.contacts.length === 1 ? 'contact' : 'contacts'} at{' '}
-              {partner.businessName}
+              {partner.business_name}
             </div>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
@@ -153,7 +205,9 @@ export default function PartnerDetail() {
                 <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>
                   Cancel
                 </Button>
-                <Button type="submit">Save Contact</Button>
+                <Button type="submit" disabled={submitting}>
+                  {submitting ? 'Saving...' : 'Save Contact'}
+                </Button>
               </div>
             </form>
           </Card>
