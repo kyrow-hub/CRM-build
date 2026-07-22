@@ -8,9 +8,13 @@ import EmptyState from '../components/ui/EmptyState.jsx'
 import ClientForm from '../components/client/ClientForm.jsx'
 import CaseNotesPanel from '../components/client/CaseNotesPanel.jsx'
 import GoalsOutcomesPanel from '../components/client/GoalsOutcomesPanel.jsx'
+import CaseActivitiesPanel from '../components/client/CaseActivitiesPanel.jsx'
+import OutcomesPanel from '../components/client/OutcomesPanel.jsx'
+import ClientReferralsPanel from '../components/client/ClientReferralsPanel.jsx'
 import { getClientById, updateClient, archiveClient, listAssignableWorkers } from '../services/clientService.js'
 import { useToast } from '../context/ToastContext.jsx'
 import { initials } from '../utils/initials.js'
+import { avatarTone } from '../utils/avatarColor.js'
 import { CLIENT_TABS } from '../data/clientTabs.js'
 
 const STATUS_TONE = {
@@ -32,8 +36,11 @@ const DETAIL_FIELDS = [
   { key: 'emergency_contact_name', label: 'Emergency Contact Name' },
   { key: 'emergency_contact_phone', label: 'Emergency Contact Phone' },
   { key: 'referral_source', label: 'Referral Source' },
+  { key: 'risk_level', label: 'Risk Level' },
+  { key: 'cultural_background', label: 'Cultural Background' },
   { key: 'date_opened', label: 'Date Opened' },
   { key: 'date_closed', label: 'Date Closed' },
+  { key: 'exit_reason', label: 'Exit Reason' },
 ]
 
 export default function ClientDetail() {
@@ -135,7 +142,7 @@ export default function ClientDetail() {
         <Card>
           <div className="client-detail-header">
             <div className="client-detail-identity">
-              <div className="client-detail-avatar">{initials(fullName)}</div>
+              <div className={`client-detail-avatar avatar--${avatarTone(fullName)}`}>{initials(fullName)}</div>
               <div className="client-detail-meta">
                 <div className="client-detail-name">
                   {fullName}
@@ -228,10 +235,16 @@ export default function ClientDetail() {
                 ))}
               </div>
             </Card>
+          ) : activeTab === 'activities' ? (
+            <CaseActivitiesPanel key={client.id} clientId={client.id} clientName={fullName} />
           ) : activeTab === 'case-notes' ? (
             <CaseNotesPanel key={client.id} clientId={client.id} clientName={fullName} />
+          ) : activeTab === 'referrals' ? (
+            <ClientReferralsPanel key={client.id} clientId={client.id} clientName={fullName} />
           ) : activeTab === 'goals-outcomes' ? (
             <GoalsOutcomesPanel key={client.id} clientId={client.id} clientName={fullName} />
+          ) : activeTab === 'outcomes' ? (
+            <OutcomesPanel key={client.id} clientId={client.id} clientName={fullName} />
           ) : (
             <Card>
               <EmptyState

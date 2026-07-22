@@ -9,6 +9,7 @@ import { createLead } from '../services/leadService.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { initials } from '../utils/initials.js'
+import { avatarTone } from '../utils/avatarColor.js'
 
 const STATUS_TONE = {
   New: 'info',
@@ -214,7 +215,7 @@ export default function Leads() {
               return (
                 <div className="data-row leads-row" key={l.id}>
                   <div className="client-identity">
-                    <div className="client-avatar">{initials(fullName)}</div>
+                    <div className={`client-avatar avatar--${avatarTone(fullName)}`}>{initials(fullName)}</div>
                     <span>{fullName}</span>
                   </div>
                   <span className="data-cell-muted">{l.company || '—'}</span>

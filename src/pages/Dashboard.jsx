@@ -4,10 +4,10 @@ import Card from '../components/ui/Card.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
 
 const STATS = [
-  { label: 'Total Leads', value: '0', meta: 'No leads yet', icon: Target },
-  { label: 'Active Deals', value: '0', meta: 'No deals in pipeline', icon: Handshake },
-  { label: 'Revenue', value: '$0', meta: 'This quarter', icon: DollarSign },
-  { label: 'Meetings This Week', value: '0', meta: 'Nothing scheduled', icon: Calendar },
+  { label: 'Total Leads', value: '0', meta: 'No leads yet', icon: Target, tone: 'blue' },
+  { label: 'Active Deals', value: '0', meta: 'No deals in pipeline', icon: Handshake, tone: 'purple' },
+  { label: 'Revenue', value: '$0', meta: 'This quarter', icon: DollarSign, tone: 'green' },
+  { label: 'Meetings This Week', value: '0', meta: 'Nothing scheduled', icon: Calendar, tone: 'orange' },
 ]
 
 export default function Dashboard() {

@@ -4,6 +4,7 @@ import {
   FileText,
   Share2,
   TrendingUp,
+  Award,
   ClipboardList,
   BookOpen,
   CalendarClock,
@@ -23,8 +24,8 @@ export const CLIENT_TABS = [
     key: 'activities',
     label: 'Activities',
     icon: Activity,
-    emptyTitle: 'No activity yet',
-    emptyText: 'A timeline of calls, emails, and updates for this client will appear here.',
+    emptyTitle: 'No case activities yet',
+    emptyText: 'Home visits, school visits, family meetings, and other activities logged for this client will appear here.',
   },
   {
     key: 'case-notes',
@@ -46,6 +47,13 @@ export const CLIENT_TABS = [
     icon: TrendingUp,
     emptyTitle: 'No goals set yet',
     emptyText: 'Goals and outcome tracking for this client will appear here.',
+  },
+  {
+    key: 'outcomes',
+    label: 'Outcomes',
+    icon: Award,
+    emptyTitle: 'No outcomes recorded yet',
+    emptyText: 'Education, employment, health, justice, family, and cultural outcomes for this client will appear here.',
   },
   {
     key: 'staff-register',

@@ -8,6 +8,7 @@ import { listSessionAttendance, addIndividualSessionNote } from '../../services/
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { initials } from '../../utils/initials.js'
+import { avatarTone } from '../../utils/avatarColor.js'
 
 const STATUS_TONE = {
   Present: 'success',
@@ -44,7 +45,7 @@ function ParticipantRow({ record, sessionId }) {
   return (
     <div className="group-session-participant-detail">
       <div className="group-session-participant-detail-main">
-        <div className="client-avatar">{initials(name)}</div>
+        <div className={`client-avatar avatar--${avatarTone(name)}`}>{initials(name)}</div>
         <span style={{ flex: 1, fontWeight: 600, fontSize: 13.5 }}>{name}</span>
         <StatusPill tone={STATUS_TONE[record.attendance_status] ?? 'neutral'}>{record.attendance_status}</StatusPill>
         <button type="button" className="link-button" onClick={() => setShowNote((v) => !v)}>

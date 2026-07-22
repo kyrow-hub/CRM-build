@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { downloadCsv, partnersToMailMergeRows } from '../utils/exportCsv.js'
 import { initials } from '../utils/initials.js'
+import { avatarTone } from '../utils/avatarColor.js'
 
 const emptyForm = { name: '', phone: '', email: '' }
 
@@ -110,7 +111,7 @@ export default function PartnerDetail() {
         <Card>
           <div className="client-detail-header">
             <div className="client-detail-identity">
-              <div className="client-detail-avatar">{initials(partner.business_name)}</div>
+              <div className={`client-detail-avatar avatar--${avatarTone(partner.business_name)}`}>{initials(partner.business_name)}</div>
               <div className="client-detail-meta">
                 <div className="client-detail-name">{partner.business_name}</div>
                 <div className="client-detail-sub">

@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
-import { FileText, Share2, TrendingUp, PackageCheck, Users } from 'lucide-react'
+import { FileText, Share2, TrendingUp, Award, Activity, PackageCheck, Users } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import StatCard from '../components/ui/StatCard.jsx'
 import StatusPill from '../components/ui/StatusPill.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
 import { countClientNotes, listAllClientNotes } from '../services/clientNoteService.js'
 import { countClientGoals, listAllClientGoals } from '../services/clientGoalService.js'
-import { countClientsWithDetails } from '../services/clientService.js'
+import { countClientsWithDetails, listClientsForReports } from '../services/clientService.js'
+import { countReferralsByStatus, listReferrals } from '../services/referralService.js'
+import { countCaseActivities, listAllCaseActivities } from '../services/caseActivityService.js'
+import { countOutcomesByCategory, listAllOutcomes } from '../services/outcomeService.js'
 
 const GOAL_STATUS_TONE = {
   'Not Started': 'neutral',
@@ -15,16 +18,72 @@ const GOAL_STATUS_TONE = {
   'Not Achieved': 'danger',
 }
 
+const REFERRAL_STATUS_TONE = { Received: 'info', Accepted: 'success', Declined: 'danger' }
+
+const OUTCOME_CATEGORY_TONE = {
+  Education: 'info',
+  Employment: 'success',
+  Health: 'warning',
+  Justice: 'danger',
+  Family: 'neutral',
+  Cultural: 'info',
+  Camp: 'success',
+}
+
 const REPORT_TABS = [
-  { key: 'case-notes', label: 'Case Notes', icon: FileText },
-  { key: 'referrals', label: 'Referrals', icon: Share2 },
-  { key: 'goals-outcomes', label: 'Goals & Outcomes', icon: TrendingUp },
-  { key: 'service-delivery', label: 'Service Delivery', icon: PackageCheck },
-  { key: 'demographics', label: 'Demographics', icon: Users },
+  { key: 'case-notes', label: 'Case Notes', icon: FileText, tone: 'blue' },
+  { key: 'activities', label: 'Case Activities', icon: Activity, tone: 'purple' },
+  { key: 'referrals', label: 'Referrals', icon: Share2, tone: 'teal' },
+  { key: 'goals-outcomes', label: 'Goals & Outcomes', icon: TrendingUp, tone: 'green' },
+  { key: 'outcomes', label: 'Outcomes', icon: Award, tone: 'pink' },
+  { key: 'service-delivery', label: 'Service Delivery', icon: PackageCheck, tone: 'orange' },
+  { key: 'demographics', label: 'Demographics', icon: Users, tone: 'yellow' },
 ]
 
 function clientName(client) {
   return client ? [client.first_name, client.last_name].filter(Boolean).join(' ') : '—'
+}
+
+function ageBand(dob) {
+  if (!dob) return null
+  const ageMs = Date.now() - new Date(dob).getTime()
+  const age = Math.floor(ageMs / (365.25 * 24 * 3600 * 1000))
+  if (age < 12) return 'Under 12'
+  if (age < 16) return '12-15'
+  if (age < 19) return '16-18'
+  if (age < 25) return '19-24'
+  return '25+'
+}
+
+function countBy(items, fn) {
+  const map = {}
+  for (const item of items) {
+    const key = fn(item) || 'Not recorded'
+    map[key] = (map[key] ?? 0) + 1
+  }
+  return Object.entries(map).sort((a, b) => b[1] - a[1])
+}
+
+function BreakdownCard({ title, entries }) {
+  return (
+    <Card>
+      <div className="section-subtitle" style={{ marginBottom: 12, fontWeight: 700, color: 'var(--text)' }}>
+        {title}
+      </div>
+      {entries.length === 0 ? (
+        <div className="data-cell-muted">No data recorded yet</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {entries.map(([label, count]) => (
+            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+              <span>{label}</span>
+              <span className="data-cell-muted">{count}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  )
 }
 
 export default function Reports() {
@@ -33,39 +92,96 @@ export default function Reports() {
   const [notesCount, setNotesCount] = useState(0)
   const [goalsCount, setGoalsCount] = useState(0)
   const [detailsCount, setDetailsCount] = useState(0)
+  const [activitiesCount, setActivitiesCount] = useState(0)
+  const [outcomesByCategory, setOutcomesByCategory] = useState({})
+  const [referralsByStatus, setReferralsByStatus] = useState({})
   const [notes, setNotes] = useState([])
   const [goals, setGoals] = useState([])
+  const [activities, setActivities] = useState([])
+  const [outcomes, setOutcomes] = useState([])
+  const [referrals, setReferrals] = useState([])
+  const [clientsForReports, setClientsForReports] = useState([])
 
   useEffect(() => {
-    Promise.all([countClientNotes(), countClientGoals(), countClientsWithDetails(), listAllClientNotes(), listAllClientGoals()])
-      .then(([nCount, gCount, dCount, allNotes, allGoals]) => {
-        setNotesCount(nCount)
-        setGoalsCount(gCount)
-        setDetailsCount(dCount)
-        setNotes(allNotes)
-        setGoals(allGoals)
-      })
+    Promise.all([
+      countClientNotes(),
+      countClientGoals(),
+      countClientsWithDetails(),
+      countCaseActivities(),
+      countOutcomesByCategory(),
+      countReferralsByStatus(),
+      listAllClientNotes(),
+      listAllClientGoals(),
+      listAllCaseActivities(),
+      listAllOutcomes(),
+      listReferrals(),
+      listClientsForReports(),
+    ])
+      .then(
+        ([
+          nCount,
+          gCount,
+          dCount,
+          aCount,
+          outcomeCategoryCounts,
+          referralStatusCounts,
+          allNotes,
+          allGoals,
+          allActivities,
+          allOutcomes,
+          allReferrals,
+          allClients,
+        ]) => {
+          setNotesCount(nCount)
+          setGoalsCount(gCount)
+          setDetailsCount(dCount)
+          setActivitiesCount(aCount)
+          setOutcomesByCategory(outcomeCategoryCounts)
+          setReferralsByStatus(referralStatusCounts)
+          setNotes(allNotes)
+          setGoals(allGoals)
+          setActivities(allActivities)
+          setOutcomes(allOutcomes)
+          setReferrals(allReferrals)
+          setClientsForReports(allClients)
+        },
+      )
       .finally(() => setLoading(false))
   }, [])
 
+  const outcomesCount = Object.values(outcomesByCategory).reduce((sum, n) => sum + n, 0)
+  const referralsCount = Object.values(referralsByStatus).reduce((sum, n) => sum + n, 0)
+
   const stats = {
     'case-notes': { label: 'Case Notes Logged', value: notesCount },
-    referrals: { label: 'Referrals Made', value: 0 },
+    activities: { label: 'Case Activities Logged', value: activitiesCount },
+    referrals: { label: 'Referrals Received', value: referralsCount },
     'goals-outcomes': { label: 'Goals Tracked', value: goalsCount },
+    outcomes: { label: 'Outcomes Recorded', value: outcomesCount },
     'service-delivery': { label: 'Services Delivered', value: 0 },
     demographics: { label: 'Clients with Details Captured', value: detailsCount },
   }
 
+  const activeCount = clientsForReports.filter((c) => c.status === 'active' && !c.archived_at).length
+  const closedCount = clientsForReports.filter((c) => c.status !== 'active' || c.archived_at).length
+  const ageBreakdown = countBy(clientsForReports, (c) => ageBand(c.date_of_birth))
+  const genderBreakdown = countBy(clientsForReports, (c) => c.gender)
+  const indigenousBreakdown = countBy(clientsForReports, (c) => c.indigenous_status)
+  const riskBreakdown = countBy(clientsForReports, (c) => c.risk_level)
+  const suburbBreakdown = countBy(clientsForReports, (c) => c.suburb).slice(0, 8)
+  const culturalRecordedCount = clientsForReports.filter((c) => c.cultural_background).length
+
   return (
     <>
-      <div className="stats-grid stats-grid--five">
-        {REPORT_TABS.map(({ key, icon }, i) => (
+      <div className="stats-grid">
+        {REPORT_TABS.map(({ key, icon, tone }, i) => (
           <div key={key} className="fade-up" style={{ animationDelay: `${i * 80}ms` }}>
             <StatCard
               label={stats[key].label}
               value={loading ? '—' : String(stats[key].value)}
               meta={loading ? 'Loading...' : stats[key].value === 0 ? 'No data recorded yet' : 'Across all clients'}
               icon={icon}
+              tone={tone}
             />
           </div>
         ))}
@@ -116,6 +232,82 @@ export default function Reports() {
                 </div>
               )}
             </Card>
+          ) : activeTab === 'activities' ? (
+            <Card style={!loading && activities.length === 0 ? undefined : { padding: 0 }}>
+              {loading ? (
+                <EmptyState icon={Activity} title="Loading..." text="Fetching case activities." />
+              ) : activities.length === 0 ? (
+                <EmptyState
+                  icon={Activity}
+                  title="No case activities to report"
+                  text="Home visits, school visits, family meetings, and other logged activities will be summarized here."
+                />
+              ) : (
+                <div className="data-table">
+                  <div className="data-row notes-row data-row--head">
+                    <span>Client</span>
+                    <span>Notes</span>
+                    <span>Date</span>
+                    <span>Type</span>
+                  </div>
+                  {activities.map((a) => (
+                    <div className="data-row notes-row" key={a.id}>
+                      <span>{clientName(a.client)}</span>
+                      <span className="data-cell-muted">{a.notes || '—'}</span>
+                      <span className="data-cell-muted">{a.activity_date}</span>
+                      <span className="data-cell-muted">{a.activity_type}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          ) : activeTab === 'referrals' ? (
+            <>
+              <div className="details-grid" style={{ marginBottom: 18 }}>
+                {['Received', 'Accepted', 'Declined'].map((status) => (
+                  <Card key={status}>
+                    <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                      {status}
+                    </div>
+                    <div className="stat-card-value" style={{ fontSize: 24 }}>
+                      {loading ? '—' : referralsByStatus[status] ?? 0}
+                    </div>
+                  </Card>
+                ))}
+              </div>
+              <Card style={!loading && referrals.length === 0 ? undefined : { padding: 0 }}>
+                {loading ? (
+                  <EmptyState icon={Share2} title="Loading..." text="Fetching referrals." />
+                ) : referrals.length === 0 ? (
+                  <EmptyState
+                    icon={Share2}
+                    title="No referrals to report"
+                    text="Referrals logged on the Referrals page will be summarized here."
+                  />
+                ) : (
+                  <div className="data-table">
+                    <div className="data-row leads-row data-row--head">
+                      <span>Name</span>
+                      <span>Source</span>
+                      <span className="leads-col-email">Referred By</span>
+                      <span className="leads-col-phone">Date</span>
+                      <span className="leads-col-source">Client Linked</span>
+                      <span>Status</span>
+                    </div>
+                    {referrals.map((r) => (
+                      <div className="data-row leads-row" key={r.id}>
+                        <span>{[r.first_name, r.last_name].filter(Boolean).join(' ')}</span>
+                        <span className="data-cell-muted">{r.referral_source || '—'}</span>
+                        <span className="data-cell-muted leads-col-email">{r.referred_by || '—'}</span>
+                        <span className="data-cell-muted leads-col-phone">{r.date_received}</span>
+                        <span className="data-cell-muted leads-col-source">{clientName(r.client)}</span>
+                        <StatusPill tone={REFERRAL_STATUS_TONE[r.status] ?? 'neutral'}>{r.status}</StatusPill>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </>
           ) : activeTab === 'goals-outcomes' ? (
             <Card style={!loading && goals.length === 0 ? undefined : { padding: 0 }}>
               {loading ? (
@@ -145,20 +337,91 @@ export default function Reports() {
                 </div>
               )}
             </Card>
+          ) : activeTab === 'outcomes' ? (
+            <>
+              <div className="details-grid" style={{ marginBottom: 18 }}>
+                {['Education', 'Employment', 'Health', 'Justice', 'Family', 'Cultural', 'Camp'].map((category) => (
+                  <Card key={category}>
+                    <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                      {category}
+                    </div>
+                    <div className="stat-card-value" style={{ fontSize: 24 }}>
+                      {loading ? '—' : outcomesByCategory[category] ?? 0}
+                    </div>
+                  </Card>
+                ))}
+              </div>
+              <Card style={!loading && outcomes.length === 0 ? undefined : { padding: 0 }}>
+                {loading ? (
+                  <EmptyState icon={Award} title="Loading..." text="Fetching outcomes." />
+                ) : outcomes.length === 0 ? (
+                  <EmptyState
+                    icon={Award}
+                    title="No outcomes to report"
+                    text="Education, employment, health, justice, family, and cultural outcomes will be summarized here."
+                  />
+                ) : (
+                  <div className="data-table">
+                    <div className="data-row goals-row data-row--head">
+                      <span>Outcome</span>
+                      <span className="goals-col-date">Date</span>
+                      <span>Category</span>
+                      <span className="goals-col-notes">Client</span>
+                    </div>
+                    {outcomes.map((o) => (
+                      <div className="data-row goals-row" key={o.id}>
+                        <span>{o.outcome_type}</span>
+                        <span className="data-cell-muted goals-col-date">{o.outcome_date}</span>
+                        <StatusPill tone={OUTCOME_CATEGORY_TONE[o.category] ?? 'neutral'}>{o.category}</StatusPill>
+                        <span className="data-cell-muted goals-col-notes">{clientName(o.client)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </>
           ) : activeTab === 'demographics' ? (
-            <Card>
-              <EmptyState
-                icon={Users}
-                title={loading ? 'Loading...' : `${detailsCount} client${detailsCount === 1 ? '' : 's'} with details captured`}
-                text="A breakdown by gender, ethnicity, and other fields isn't built yet - this is a running count of clients with at least one demographic field filled in."
-              />
-            </Card>
+            <>
+              <div className="details-grid" style={{ marginBottom: 18 }}>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Active Participants
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : activeCount}
+                  </div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Closed Participants
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : closedCount}
+                  </div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Cultural Background Recorded
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : culturalRecordedCount}
+                  </div>
+                </Card>
+              </div>
+              <div className="details-grid">
+                <BreakdownCard title="Age" entries={ageBreakdown} />
+                <BreakdownCard title="Gender" entries={genderBreakdown} />
+                <BreakdownCard title="Aboriginal & Torres Strait Islander Status" entries={indigenousBreakdown} />
+                <BreakdownCard title="Risk Level" entries={riskBreakdown} />
+                <BreakdownCard title="Suburb" entries={suburbBreakdown} />
+              </div>
+            </>
           ) : (
             <Card>
               <EmptyState
-                icon={activeTab === 'referrals' ? Share2 : PackageCheck}
-                title={activeTab === 'referrals' ? 'Referral tracking not built yet' : 'Service delivery tracking not built yet'}
-                text="There's no database table for this yet, so there's nothing real to report."
+                icon={PackageCheck}
+                title="Service delivery tracking not built yet"
+                text="There's no database table for this yet, so there's nothing real to report. Program attendance and hours are tracked in Attendance Register."
               />
             </Card>
           )}

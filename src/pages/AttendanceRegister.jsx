@@ -16,6 +16,7 @@ import { createClientNote } from '../services/clientNoteService.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { initials } from '../utils/initials.js'
+import { avatarTone } from '../utils/avatarColor.js'
 
 const ATTENDANCE_STATUS_TONE = {
   Present: 'success',
@@ -390,7 +391,7 @@ export default function AttendanceRegister() {
                   return (
                     <div className="data-row attendance-row" key={r.id}>
                       <div className="client-identity">
-                        <div className="client-avatar">{initials(clientName)}</div>
+                        <div className={`client-avatar avatar--${avatarTone(clientName)}`}>{initials(clientName)}</div>
                         <span>{clientName}</span>
                       </div>
                       <span className="data-cell-muted">{r.session?.program?.name ?? '—'}</span>
@@ -499,7 +500,7 @@ export default function AttendanceRegister() {
                 {savedNotes.map((n) => (
                   <div className="data-row notes-row" key={n.id}>
                     <div className="client-identity">
-                      <div className="client-avatar">{initials(n.clientName || '—')}</div>
+                      <div className={`client-avatar avatar--${avatarTone(n.clientName || '—')}`}>{initials(n.clientName || '—')}</div>
                       <span>{n.clientName}</span>
                     </div>
                     <span className="data-cell-muted">{n.content}</span>

@@ -11,6 +11,7 @@ import { createClient, listAssignableWorkers } from '../services/clientService.j
 import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { initials } from '../utils/initials.js'
+import { avatarTone } from '../utils/avatarColor.js'
 
 const STATUS_TONE = {
   active: 'success',
@@ -121,7 +122,7 @@ export default function Clients() {
                 <Link to={`/clients/${c.id}`} className="clients-row clients-row--clickable" key={c.id}>
                   <span className="clients-cell-muted">{c.client_number}</span>
                   <div className="client-identity">
-                    <div className="client-avatar">{initials(fullName)}</div>
+                    <div className={`client-avatar avatar--${avatarTone(fullName)}`}>{initials(fullName)}</div>
                     <span>{fullName}</span>
                   </div>
                   <span className="clients-cell-muted clients-col-email">{c.phone || '—'}</span>

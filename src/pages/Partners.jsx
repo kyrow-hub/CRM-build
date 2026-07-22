@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { downloadCsv, partnersToMailMergeRows } from '../utils/exportCsv.js'
 import { initials } from '../utils/initials.js'
+import { avatarTone } from '../utils/avatarColor.js'
 
 const emptyForm = {
   business_name: '',
@@ -215,7 +216,7 @@ export default function Partners() {
             {partners.map((p) => (
               <Link to={`/partners/${p.id}`} className="data-row partners-row clients-row--clickable" key={p.id}>
                 <div className="client-identity">
-                  <div className="client-avatar">{initials(p.business_name)}</div>
+                  <div className={`client-avatar avatar--${avatarTone(p.business_name)}`}>{initials(p.business_name)}</div>
                   <span>{p.business_name}</span>
                 </div>
                 <span className="data-cell-muted partners-col-address">{p.address}</span>

@@ -8,6 +8,7 @@ import Clients from './pages/Clients.jsx'
 import ClientDetail from './pages/ClientDetail.jsx'
 import Partners from './pages/Partners.jsx'
 import PartnerDetail from './pages/PartnerDetail.jsx'
+import Referrals from './pages/Referrals.jsx'
 import Meetings from './pages/Meetings.jsx'
 import AttendanceRegister from './pages/AttendanceRegister.jsx'
 import Email from './pages/Email.jsx'
@@ -26,6 +27,7 @@ export default function App() {
             <Route element={<Layout />}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/leads" element={<Leads />} />
+              <Route path="/referrals" element={<Referrals />} />
               <Route path="/clients" element={<Clients />} />
               <Route path="/clients/:id" element={<ClientDetail />} />
               <Route path="/partners" element={<Partners />} />

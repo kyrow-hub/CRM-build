@@ -84,6 +84,19 @@ export async function countClientsWithDetails() {
   return count ?? 0
 }
 
+// Returns every client (including archived/closed ones) with just the
+// fields needed for demographic reporting, so Reports can aggregate the
+// whole population rather than only active clients.
+export async function listClientsForReports() {
+  const { data, error } = await supabase
+    .from('clients')
+    .select(
+      'id, status, date_of_birth, gender, indigenous_status, risk_level, cultural_background, postcode, suburb, date_opened, date_closed, archived_at',
+    )
+  if (error) throw error
+  return data
+}
+
 export async function listAssignableWorkers() {
   const { data, error } = await supabase
     .from('profiles')

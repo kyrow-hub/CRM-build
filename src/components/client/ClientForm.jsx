@@ -5,6 +5,7 @@ import Button from '../ui/Button.jsx'
 const GENDER_OPTIONS = ['Male', 'Female', 'Other', 'Not stated']
 const INDIGENOUS_OPTIONS = ['Aboriginal', 'Torres Strait Islander', 'Both', 'Neither', 'Not stated']
 const STATUS_OPTIONS = ['active', 'inactive', 'pending', 'closed']
+const RISK_LEVEL_OPTIONS = ['Low', 'Medium', 'High']
 
 const blankValues = {
   client_number: '',
@@ -23,8 +24,11 @@ const blankValues = {
   emergency_contact_name: '',
   emergency_contact_phone: '',
   referral_source: '',
+  risk_level: '',
+  cultural_background: '',
   assigned_worker_id: '',
   status: 'active',
+  exit_reason: '',
 }
 
 function toFormValues(initialValues) {
@@ -219,6 +223,30 @@ export default function ClientForm({ initialValues, workers, onSubmit, onCancel,
             />
           </div>
           <div>
+            <label className="form-label" htmlFor="cf-risk_level">
+              Risk Level
+            </label>
+            <select id="cf-risk_level" className="input" value={values.risk_level} onChange={set('risk_level')}>
+              <option value="">Select...</option>
+              {RISK_LEVEL_OPTIONS.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="form-label" htmlFor="cf-cultural_background">
+              Cultural Background
+            </label>
+            <input
+              id="cf-cultural_background"
+              className="input"
+              value={values.cultural_background}
+              onChange={set('cultural_background')}
+            />
+          </div>
+          <div>
             <label className="form-label" htmlFor="cf-assigned_worker_id">
               Assigned Worker
             </label>
@@ -247,6 +275,18 @@ export default function ClientForm({ initialValues, workers, onSubmit, onCancel,
                 </option>
               ))}
             </select>
+          </div>
+          <div>
+            <label className="form-label" htmlFor="cf-exit_reason">
+              Exit Reason
+            </label>
+            <input
+              id="cf-exit_reason"
+              className="input"
+              placeholder="Only relevant if closing this client"
+              value={values.exit_reason}
+              onChange={set('exit_reason')}
+            />
           </div>
         </div>
 
