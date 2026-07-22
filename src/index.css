@@ -657,6 +657,12 @@ button {
   color: #fb7185;
 }
 
+.avatar--fuchsia,
+.stat-card-icon--fuchsia {
+  background: rgba(232, 121, 249, 0.14);
+  color: #e879f9;
+}
+
 .clients-cell-muted {
   color: var(--muted);
   font-size: 13px;
@@ -897,6 +903,10 @@ textarea.input {
 
 .program-summary-row {
   grid-template-columns: 1.6fr 1.4fr 0.9fr 1.1fr 1.1fr 1fr;
+}
+
+.assessments-row {
+  grid-template-columns: 1.4fr 0.9fr 0.9fr 1.3fr 0.9fr 1fr;
 }
 
 @media (max-width: 900px) {

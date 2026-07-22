@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { FileText, Share2, TrendingUp, Award, Activity, PackageCheck, Users, Download, Gauge, BarChart3, Tent, StickyNote, Sparkles, Plus, ClipboardList, FileSpreadsheet } from 'lucide-react'
+import { FileText, Share2, TrendingUp, Award, Activity, PackageCheck, Users, Download, Gauge, BarChart3, Tent, StickyNote, Sparkles, Plus, ClipboardList, ClipboardCheck, FileSpreadsheet } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import Button from '../components/ui/Button.jsx'
 import StatCard from '../components/ui/StatCard.jsx'
@@ -18,6 +18,8 @@ import { listGroupNoteReport } from '../services/groupSessionService.js'
 import { listGoodNewsStories, createGoodNewsStory } from '../services/goodNewsStoryService.js'
 import { listPrograms } from '../services/programService.js'
 import { getGroupAttendanceReport } from '../services/groupAttendanceReportService.js'
+import { listAllAssessments } from '../services/assessmentService.js'
+import { SEWB_DOMAINS } from '../data/assessmentOptions.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { initials } from '../utils/initials.js'
@@ -58,10 +60,11 @@ const REPORT_TABS = [
   { key: 'group-notes', label: 'Group Note Report', icon: StickyNote, tone: 'violet' },
   { key: 'good-news', label: 'Good News Stories', icon: Sparkles, tone: 'lime' },
   { key: 'group-attendance', label: 'Group Attendance', icon: ClipboardList, tone: 'amber' },
+  { key: 'assessments', label: 'Assessments', icon: ClipboardCheck, tone: 'fuchsia' },
   { key: 'full-report', label: 'Full Service Report', icon: FileSpreadsheet, tone: 'rose' },
 ]
 
-const FULL_REPORT_SHEET_COUNT = 12
+const FULL_REPORT_SHEET_COUNT = 13
 
 const ATTENDANCE_STATUS_TONE = {
   Present: 'success',
@@ -260,6 +263,27 @@ function groupAttendanceToRows(sessions) {
   )
 }
 
+function sewbAverage(scores) {
+  const values = Object.values(scores || {})
+  if (values.length === 0) return ''
+  return (values.reduce((sum, v) => sum + v, 0) / values.length).toFixed(1)
+}
+
+function assessmentsToRows(assessments) {
+  return assessments.map((a) => ({
+    Client: clientName(a.client),
+    Type: a.assessment_type,
+    Date: a.assessment_date,
+    Assessor: a.assessor ? [a.assessor.first_name, a.assessor.last_name].filter(Boolean).join(' ') : '',
+    'Overall Risk': a.overall_risk_level || '',
+    'Progress Status': a.progress_status || '',
+    'Presenting Issues': (a.presenting_issues || []).join('; '),
+    'Protective Factors': (a.protective_factors || []).join('; '),
+    'SEWB Avg (1-5)': sewbAverage(a.sewb_scores),
+    Confidential: a.confidential ? 'Yes' : 'No',
+  }))
+}
+
 function ExportButton({ rows, filename }) {
   return (
     <Button
@@ -347,6 +371,7 @@ export default function Reports() {
     presentCount: 0,
     distinctParticipants: 0,
   })
+  const [assessments, setAssessments] = useState([])
 
   const refetchGoodNewsStories = () => {
     listGoodNewsStories()
@@ -387,6 +412,7 @@ export default function Reports() {
       listGroupNoteReport(),
       listGoodNewsStories(),
       getGroupAttendanceReport(),
+      listAllAssessments(),
     ])
       .then(
         ([
@@ -411,6 +437,7 @@ export default function Reports() {
           groupNoteSessionsResult,
           goodNewsStoriesResult,
           groupAttendanceReportResult,
+          allAssessments,
         ]) => {
           setNotesCount(nCount)
           setGoalsCount(gCount)
@@ -433,6 +460,7 @@ export default function Reports() {
           setGroupNoteSessions(groupNoteSessionsResult)
           setGoodNewsStories(goodNewsStoriesResult)
           setGroupAttendanceReport(groupAttendanceReportResult)
+          setAssessments(allAssessments)
         },
       )
       .catch((err) => setLoadError(err.message))
@@ -456,6 +484,7 @@ export default function Reports() {
     'group-notes': { label: 'Group Notes Written', value: groupNoteSessions.length },
     'good-news': { label: 'Good News Stories', value: goodNewsStories.length },
     'group-attendance': { label: 'Group Sessions Attended', value: groupAttendanceReport.totalSessions },
+    assessments: { label: 'Assessments Recorded', value: assessments.length },
     'full-report': { label: 'Report Sections', value: FULL_REPORT_SHEET_COUNT },
   }
 
@@ -515,6 +544,34 @@ export default function Reports() {
     ? (totalGroupNoteParticipants / groupNoteSessions.length).toFixed(1)
     : '—'
 
+  const assessmentTypeBreakdown = countBy(assessments, (a) => a.assessment_type)
+  const riskLevelBreakdown = countBy(
+    assessments.filter((a) => a.overall_risk_level),
+    (a) => a.overall_risk_level,
+  )
+  const progressStatusBreakdown = countBy(
+    assessments.filter((a) => a.progress_status),
+    (a) => a.progress_status,
+  )
+  const presentingIssuesBreakdown = countBy(
+    assessments.flatMap((a) => a.presenting_issues || []),
+    (issue) => issue,
+  )
+  const protectiveFactorsBreakdown = countBy(
+    assessments.flatMap((a) => a.protective_factors || []),
+    (factor) => factor,
+  )
+  const assessmentsWithSewb = assessments.filter((a) => Object.keys(a.sewb_scores || {}).length > 0)
+  const allSewbValues = assessmentsWithSewb.flatMap((a) => Object.values(a.sewb_scores))
+  const overallSewbAverage = allSewbValues.length
+    ? (allSewbValues.reduce((sum, v) => sum + v, 0) / allSewbValues.length).toFixed(1)
+    : ''
+  const sewbDomainAverages = SEWB_DOMAINS.map(({ key, label }) => {
+    const scores = assessments.map((a) => a.sewb_scores?.[key]).filter((v) => v != null)
+    const avg = scores.length ? (scores.reduce((sum, v) => sum + v, 0) / scores.length).toFixed(1) : null
+    return [label, avg ?? '—']
+  })
+
   const handleAddGoodNewsStory = async (e) => {
     e.preventDefault()
     setSubmittingGoodNews(true)
@@ -553,6 +610,7 @@ export default function Reports() {
         { name: 'Group Notes', rows: groupNotesToRows(groupNoteSessions) },
         { name: 'Group Attendance', rows: groupAttendanceToRows(groupAttendanceReport.sessions) },
         { name: 'Good News Stories', rows: goodNewsStoriesToRows(goodNewsStories) },
+        { name: 'Assessments', rows: assessmentsToRows(assessments) },
         { name: 'KPI Summary', rows: kpiToRows(kpiData) },
       ])
       toast.success('Full service report downloaded.')
@@ -1449,6 +1507,96 @@ export default function Reports() {
                 )}
               </Card>
             </>
+          ) : activeTab === 'assessments' ? (
+            <>
+              <ExportButton rows={assessmentsToRows(assessments)} filename="assessments-report.csv" />
+              <div className="details-grid" style={{ marginBottom: 18 }}>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Total Assessments
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : assessments.length}
+                  </div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Intake Assessments
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : assessmentTypeBreakdown.find(([t]) => t === 'Intake')?.[1] ?? 0}
+                  </div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Review Assessments
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : assessmentTypeBreakdown.find(([t]) => t === 'Review')?.[1] ?? 0}
+                  </div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Exit Assessments
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : assessmentTypeBreakdown.find(([t]) => t === 'Exit')?.[1] ?? 0}
+                  </div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Average SEWB Score
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : overallSewbAverage || '—'}
+                  </div>
+                  <div className="data-cell-muted">Out of 5, across {assessmentsWithSewb.length} assessments scored</div>
+                </Card>
+              </div>
+
+              <div className="details-grid" style={{ marginBottom: 18 }}>
+                <BreakdownCard title="Overall Risk Level" entries={riskLevelBreakdown} />
+                <BreakdownCard title="Review Progress" entries={progressStatusBreakdown} />
+                <BreakdownCard title="Presenting Issues" entries={presentingIssuesBreakdown} />
+                <BreakdownCard title="Protective Factors" entries={protectiveFactorsBreakdown} />
+                <BreakdownCard title="SEWB Domain Averages (out of 5)" entries={sewbDomainAverages} />
+              </div>
+
+              <Card style={!loading && assessments.length === 0 ? undefined : { padding: 0 }}>
+                {loading ? (
+                  <EmptyState icon={ClipboardCheck} title="Loading..." text="Fetching assessments." />
+                ) : assessments.length === 0 ? (
+                  <EmptyState
+                    icon={ClipboardCheck}
+                    title="No assessments recorded yet"
+                    text="Intake, review, and exit assessments logged on client profiles will be summarized here."
+                  />
+                ) : (
+                  <div className="data-table">
+                    <div className="data-row assessments-row data-row--head">
+                      <span>Client</span>
+                      <span>Type</span>
+                      <span>Date</span>
+                      <span>Assessor</span>
+                      <span>Risk</span>
+                      <span>Progress</span>
+                    </div>
+                    {assessments.map((a) => (
+                      <div className="data-row assessments-row" key={a.id}>
+                        <span>{clientName(a.client)}</span>
+                        <span className="data-cell-muted">{a.assessment_type}</span>
+                        <span className="data-cell-muted">{a.assessment_date}</span>
+                        <span className="data-cell-muted">
+                          {a.assessor ? [a.assessor.first_name, a.assessor.last_name].filter(Boolean).join(' ') : '—'}
+                        </span>
+                        <span className="data-cell-muted">{a.overall_risk_level || '—'}</span>
+                        <span className="data-cell-muted">{a.progress_status || '—'}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </>
           ) : activeTab === 'full-report' ? (
             <Card>
               <div className="section-title" style={{ marginBottom: 6 }}>
@@ -1471,6 +1619,7 @@ export default function Reports() {
                   ['Group Notes', groupNoteSessions.length],
                   ['Group Attendance', groupAttendanceReport.sessions.length],
                   ['Good News Stories', goodNewsStories.length],
+                  ['Assessments', assessments.length],
                   ['KPI Summary', 8],
                 ].map(([label, count]) => (
                   <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5 }}>

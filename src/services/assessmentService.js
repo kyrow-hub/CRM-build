@@ -23,3 +23,13 @@ export async function deleteAssessment(id) {
   const { error } = await supabase.from('client_assessments').delete().eq('id', id)
   if (error) throw error
 }
+
+// Every assessment across every client, for the Reports "Assessments" tab.
+export async function listAllAssessments() {
+  const { data, error } = await supabase
+    .from('client_assessments')
+    .select(`${ASSESSMENT_COLUMNS}, client:clients(id, first_name, last_name)`)
+    .order('assessment_date', { ascending: false })
+  if (error) throw error
+  return data
+}

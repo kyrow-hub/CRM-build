@@ -48,10 +48,11 @@ gated by Supabase Auth plus role-based RLS policies (see `supabase/migrations/`)
 
 Case Notes, Activities, Referrals, Goals & Outcomes, Outcomes, Service Delivery (Case
 Notes grouped by category), Demographics, KPI Report, Program Performance, Overnight Camp
-Report, Group Note Report, Good News Stories, Group Attendance, and Full Service Report
-(one combined multi-sheet spreadsheet across all of the above). All are client-side
-aggregations over existing tables except Full Service Report, which reuses the
-already-fetched data from the other tabs.
+Report, Group Note Report, Good News Stories, Group Attendance, Assessments (assessment
+type/risk/progress/presenting issues/protective factors breakdowns plus SEWB domain
+averages), and Full Service Report (one combined multi-sheet spreadsheet across all of the
+above). All are client-side aggregations over existing tables except Full Service Report,
+which reuses the already-fetched data from the other tabs.
 
 ## Security posture
 
