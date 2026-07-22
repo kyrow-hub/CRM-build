@@ -1,11 +1,18 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus, ClipboardCheck, StickyNote, PackageCheck } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import Button from '../components/ui/Button.jsx'
 import StatusPill from '../components/ui/StatusPill.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
-import { mockClients } from '../data/mockClients.js'
-import { PROGRAMS } from '../data/mockPrograms.js'
+import { listClients } from '../services/clientService.js'
+import { usePrograms } from '../hooks/usePrograms.js'
+import { createProgram } from '../services/programService.js'
+import { useAttendanceRecords } from '../hooks/useAttendanceRecords.js'
+import { getOrCreateSession, createAttendanceRecord } from '../services/attendanceService.js'
+import { createClientNote } from '../services/clientNoteService.js'
+import { useAuth } from '../context/AuthContext.jsx'
+import { useToast } from '../context/ToastContext.jsx'
+import { initials } from '../utils/initials.js'
 
 const ATTENDANCE_STATUS_TONE = {
   Present: 'success',
@@ -23,59 +30,107 @@ const todayISO = () => new Date().toISOString().slice(0, 10)
 
 const emptyAttendanceForm = {
   clientId: '',
-  program: PROGRAMS[0].id,
-  activity: PROGRAMS[0].activities[0],
+  programId: '',
   date: todayISO(),
   status: 'Present',
+  transportProvided: false,
+  notes: '',
 }
 
-const emptyNoteForm = { clientId: '', note: '', shared: false }
+const emptyProgramForm = { name: '', location: '' }
+
+const emptyNoteForm = { clientId: '', note: '', confidential: false }
 
 export default function AttendanceRegister() {
+  const { user } = useAuth()
+  const toast = useToast()
   const [activeTab, setActiveTab] = useState('register')
-  const [records, setRecords] = useState([])
-  const [notes, setNotes] = useState([])
+  const [clients, setClients] = useState([])
+  const { programs, loading: programsLoading, refetch: refetchPrograms } = usePrograms()
+  const { records, loading: recordsLoading, error: recordsError, refetch: refetchRecords } = useAttendanceRecords()
+
   const [showAttendanceForm, setShowAttendanceForm] = useState(false)
+  const [showProgramForm, setShowProgramForm] = useState(false)
   const [showNoteForm, setShowNoteForm] = useState(false)
   const [attendanceForm, setAttendanceForm] = useState(emptyAttendanceForm)
+  const [programForm, setProgramForm] = useState(emptyProgramForm)
   const [noteForm, setNoteForm] = useState(emptyNoteForm)
+  const [savedNotes, setSavedNotes] = useState([])
+  const [submittingAttendance, setSubmittingAttendance] = useState(false)
+  const [submittingNote, setSubmittingNote] = useState(false)
 
-  const selectedProgram = PROGRAMS.find((p) => p.id === attendanceForm.program) ?? PROGRAMS[0]
+  useEffect(() => {
+    listClients()
+      .then(setClients)
+      .catch(() => setClients([]))
+  }, [])
 
-  const handleProgramChange = (programId) => {
-    const program = PROGRAMS.find((p) => p.id === programId)
-    setAttendanceForm((f) => ({ ...f, program: programId, activity: program.activities[0] }))
-  }
-
-  const handleAddAttendance = (e) => {
+  const handleAddProgram = async (e) => {
     e.preventDefault()
-    if (!attendanceForm.clientId) return
-    const client = mockClients.find((c) => String(c.id) === attendanceForm.clientId)
-    setRecords((prev) => [
-      {
-        id: Date.now(),
-        client,
-        program: selectedProgram.name,
-        activity: attendanceForm.activity,
-        date: attendanceForm.date,
-        status: attendanceForm.status,
-      },
-      ...prev,
-    ])
-    setAttendanceForm(emptyAttendanceForm)
-    setShowAttendanceForm(false)
+    if (!programForm.name.trim()) return
+    try {
+      const created = await createProgram({ name: programForm.name.trim(), location: programForm.location || null })
+      toast.success('Program added.')
+      setProgramForm(emptyProgramForm)
+      setShowProgramForm(false)
+      await refetchPrograms()
+      setAttendanceForm((f) => ({ ...f, programId: created.id }))
+    } catch (err) {
+      toast.error(err.message)
+    }
   }
 
-  const handleAddNote = (e) => {
+  const handleAddAttendance = async (e) => {
+    e.preventDefault()
+    if (!attendanceForm.clientId || !attendanceForm.programId) return
+    setSubmittingAttendance(true)
+    try {
+      const session = await getOrCreateSession({
+        programId: attendanceForm.programId,
+        sessionDate: attendanceForm.date,
+        createdBy: user?.id,
+      })
+      await createAttendanceRecord({
+        session_id: session.id,
+        client_id: attendanceForm.clientId,
+        attendance_status: attendanceForm.status,
+        transport_provided: attendanceForm.transportProvided,
+        notes: attendanceForm.notes || null,
+        recorded_by: user?.id,
+      })
+      toast.success('Attendance recorded.')
+      setAttendanceForm((f) => ({ ...emptyAttendanceForm, programId: f.programId }))
+      setShowAttendanceForm(false)
+      refetchRecords()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setSubmittingAttendance(false)
+    }
+  }
+
+  const handleAddNote = async (e) => {
     e.preventDefault()
     if (!noteForm.clientId || !noteForm.note.trim()) return
-    const client = mockClients.find((c) => String(c.id) === noteForm.clientId)
-    setNotes((prev) => [
-      { id: Date.now(), client, note: noteForm.note.trim(), shared: noteForm.shared, date: todayISO() },
-      ...prev,
-    ])
-    setNoteForm(emptyNoteForm)
-    setShowNoteForm(false)
+    setSubmittingNote(true)
+    try {
+      const note = await createClientNote({
+        client_id: noteForm.clientId,
+        note_type: 'Attendance',
+        content: noteForm.note.trim(),
+        confidential: noteForm.confidential,
+        created_by: user?.id,
+      })
+      const client = clients.find((c) => c.id === noteForm.clientId)
+      toast.success("Note saved to the client's profile.")
+      setSavedNotes((prev) => [{ ...note, clientName: client ? `${client.first_name} ${client.last_name}` : '' }, ...prev])
+      setNoteForm(emptyNoteForm)
+      setShowNoteForm(false)
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setSubmittingNote(false)
+    }
   }
 
   return (
@@ -101,137 +156,206 @@ export default function AttendanceRegister() {
           <div className="section-head">
             <div>
               <div className="section-title">Attendance Records</div>
-              <div className="section-subtitle">{records.length} recorded this session</div>
+              <div className="section-subtitle">{recordsLoading ? 'Loading...' : `${records.length} total records`}</div>
             </div>
-            <Button onClick={() => setShowAttendanceForm((v) => !v)}>
-              <Plus strokeWidth={2} />
-              Add Attendance
-            </Button>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <Button variant="secondary" onClick={() => setShowProgramForm((v) => !v)}>
+                <Plus strokeWidth={2} />
+                New Program
+              </Button>
+              <Button onClick={() => setShowAttendanceForm((v) => !v)}>
+                <Plus strokeWidth={2} />
+                Add Attendance
+              </Button>
+            </div>
           </div>
 
-          {showAttendanceForm && (
+          {showProgramForm && (
             <Card style={{ marginBottom: 18 }}>
-              <form onSubmit={handleAddAttendance}>
+              <form onSubmit={handleAddProgram}>
                 <div className="form-grid">
                   <div>
-                    <label className="form-label" htmlFor="att-client">
-                      Client
-                    </label>
-                    <select
-                      id="att-client"
-                      className="input"
-                      value={attendanceForm.clientId}
-                      onChange={(e) => setAttendanceForm((f) => ({ ...f, clientId: e.target.value }))}
-                      required
-                    >
-                      <option value="">Select a client...</option>
-                      {mockClients.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="form-label" htmlFor="att-program">
-                      Program
-                    </label>
-                    <select
-                      id="att-program"
-                      className="input"
-                      value={attendanceForm.program}
-                      onChange={(e) => handleProgramChange(e.target.value)}
-                    >
-                      {PROGRAMS.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="form-label" htmlFor="att-activity">
-                      Activity
-                    </label>
-                    <select
-                      id="att-activity"
-                      className="input"
-                      value={attendanceForm.activity}
-                      onChange={(e) => setAttendanceForm((f) => ({ ...f, activity: e.target.value }))}
-                    >
-                      {selectedProgram.activities.map((a) => (
-                        <option key={a} value={a}>
-                          {a}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="form-label" htmlFor="att-date">
-                      Date
+                    <label className="form-label" htmlFor="prog-name">
+                      Program Name
                     </label>
                     <input
-                      id="att-date"
-                      type="date"
+                      id="prog-name"
                       className="input"
-                      value={attendanceForm.date}
-                      onChange={(e) => setAttendanceForm((f) => ({ ...f, date: e.target.value }))}
+                      value={programForm.name}
+                      onChange={(e) => setProgramForm((f) => ({ ...f, name: e.target.value }))}
+                      required
                     />
                   </div>
                   <div>
-                    <label className="form-label" htmlFor="att-status">
-                      Status
+                    <label className="form-label" htmlFor="prog-location">
+                      Location
                     </label>
-                    <select
-                      id="att-status"
+                    <input
+                      id="prog-location"
                       className="input"
-                      value={attendanceForm.status}
-                      onChange={(e) => setAttendanceForm((f) => ({ ...f, status: e.target.value }))}
-                    >
-                      <option>Present</option>
-                      <option>Absent</option>
-                      <option>Excused</option>
-                    </select>
+                      value={programForm.location}
+                      onChange={(e) => setProgramForm((f) => ({ ...f, location: e.target.value }))}
+                    />
                   </div>
                 </div>
                 <div className="form-actions">
-                  <Button type="button" variant="secondary" onClick={() => setShowAttendanceForm(false)}>
+                  <Button type="button" variant="secondary" onClick={() => setShowProgramForm(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit">Save Record</Button>
+                  <Button type="submit">Save Program</Button>
                 </div>
               </form>
             </Card>
           )}
 
+          {showAttendanceForm && (
+            <Card style={{ marginBottom: 18 }}>
+              {programs.length === 0 && !programsLoading ? (
+                <EmptyState
+                  icon={ClipboardCheck}
+                  title="No programs yet"
+                  text="Click 'New Program' above to create one before logging attendance."
+                />
+              ) : (
+                <form onSubmit={handleAddAttendance}>
+                  <div className="form-grid">
+                    <div>
+                      <label className="form-label" htmlFor="att-client">
+                        Client
+                      </label>
+                      <select
+                        id="att-client"
+                        className="input"
+                        value={attendanceForm.clientId}
+                        onChange={(e) => setAttendanceForm((f) => ({ ...f, clientId: e.target.value }))}
+                        required
+                      >
+                        <option value="">Select a client...</option>
+                        {clients.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {[c.first_name, c.last_name].filter(Boolean).join(' ')}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="form-label" htmlFor="att-program">
+                        Program
+                      </label>
+                      <select
+                        id="att-program"
+                        className="input"
+                        value={attendanceForm.programId}
+                        onChange={(e) => setAttendanceForm((f) => ({ ...f, programId: e.target.value }))}
+                        required
+                      >
+                        <option value="">Select a program...</option>
+                        {programs.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="form-label" htmlFor="att-date">
+                        Session Date
+                      </label>
+                      <input
+                        id="att-date"
+                        type="date"
+                        className="input"
+                        value={attendanceForm.date}
+                        onChange={(e) => setAttendanceForm((f) => ({ ...f, date: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label" htmlFor="att-status">
+                        Status
+                      </label>
+                      <select
+                        id="att-status"
+                        className="input"
+                        value={attendanceForm.status}
+                        onChange={(e) => setAttendanceForm((f) => ({ ...f, status: e.target.value }))}
+                      >
+                        <option>Present</option>
+                        <option>Absent</option>
+                        <option>Excused</option>
+                      </select>
+                    </div>
+                  </div>
+                  <label className="checkbox-field">
+                    <input
+                      type="checkbox"
+                      checked={attendanceForm.transportProvided}
+                      onChange={(e) => setAttendanceForm((f) => ({ ...f, transportProvided: e.target.checked }))}
+                    />
+                    <span>Transport provided</span>
+                  </label>
+                  <div style={{ marginTop: 14 }}>
+                    <label className="form-label" htmlFor="att-notes">
+                      Notes
+                    </label>
+                    <textarea
+                      id="att-notes"
+                      className="input"
+                      rows={2}
+                      placeholder="Optional notes about this attendance..."
+                      value={attendanceForm.notes}
+                      onChange={(e) => setAttendanceForm((f) => ({ ...f, notes: e.target.value }))}
+                    />
+                  </div>
+                  <div className="form-actions">
+                    <Button type="button" variant="secondary" onClick={() => setShowAttendanceForm(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={submittingAttendance}>
+                      {submittingAttendance ? 'Saving...' : 'Save Record'}
+                    </Button>
+                  </div>
+                </form>
+              )}
+            </Card>
+          )}
+
           <Card style={{ padding: 0 }}>
-            {records.length === 0 ? (
+            {recordsLoading ? (
+              <EmptyState icon={ClipboardCheck} title="Loading attendance..." text="Fetching attendance records." />
+            ) : recordsError ? (
+              <EmptyState icon={ClipboardCheck} title="Couldn't load attendance" text={recordsError} />
+            ) : records.length === 0 ? (
               <EmptyState
                 icon={ClipboardCheck}
                 title="No attendance records yet"
-                text="Add a client above to start tracking program and activity attendance."
+                text="Add a client above to start tracking program attendance."
               />
             ) : (
               <div className="data-table">
                 <div className="data-row attendance-row data-row--head">
                   <span>Client</span>
                   <span>Program</span>
-                  <span>Activity</span>
-                  <span>Date</span>
+                  <span>Session Date</span>
+                  <span>Transport</span>
                   <span>Status</span>
                 </div>
-                {records.map((r) => (
-                  <div className="data-row attendance-row" key={r.id}>
-                    <div className="client-identity">
-                      <div className="client-avatar">{r.client?.initials}</div>
-                      <span>{r.client?.name}</span>
+                {records.map((r) => {
+                  const clientName = r.client ? [r.client.first_name, r.client.last_name].filter(Boolean).join(' ') : '—'
+                  return (
+                    <div className="data-row attendance-row" key={r.id}>
+                      <div className="client-identity">
+                        <div className="client-avatar">{initials(clientName)}</div>
+                        <span>{clientName}</span>
+                      </div>
+                      <span className="data-cell-muted">{r.session?.program?.name ?? '—'}</span>
+                      <span className="data-cell-muted">{r.session?.session_date ?? '—'}</span>
+                      <span className="data-cell-muted">{r.transport_provided ? 'Yes' : 'No'}</span>
+                      <StatusPill tone={ATTENDANCE_STATUS_TONE[r.attendance_status] ?? 'neutral'}>
+                        {r.attendance_status}
+                      </StatusPill>
                     </div>
-                    <span className="data-cell-muted">{r.program}</span>
-                    <span className="data-cell-muted">{r.activity}</span>
-                    <span className="data-cell-muted">{r.date}</span>
-                    <StatusPill tone={ATTENDANCE_STATUS_TONE[r.status] ?? 'neutral'}>{r.status}</StatusPill>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </Card>
@@ -244,7 +368,7 @@ export default function AttendanceRegister() {
             <div>
               <div className="section-title">Register Notes</div>
               <div className="section-subtitle">
-                {notes.length} {notes.length === 1 ? 'note' : 'notes'} logged this session
+                Saved directly to the client's profile — visible on their Case Notes tab
               </div>
             </div>
             <Button onClick={() => setShowNoteForm((v) => !v)}>
@@ -269,9 +393,9 @@ export default function AttendanceRegister() {
                       required
                     >
                       <option value="">Select a client...</option>
-                      {mockClients.map((c) => (
+                      {clients.map((c) => (
                         <option key={c.id} value={c.id}>
-                          {c.name}
+                          {[c.first_name, c.last_name].filter(Boolean).join(' ')}
                         </option>
                       ))}
                     </select>
@@ -294,27 +418,29 @@ export default function AttendanceRegister() {
                 <label className="checkbox-field">
                   <input
                     type="checkbox"
-                    checked={noteForm.shared}
-                    onChange={(e) => setNoteForm((f) => ({ ...f, shared: e.target.checked }))}
+                    checked={noteForm.confidential}
+                    onChange={(e) => setNoteForm((f) => ({ ...f, confidential: e.target.checked }))}
                   />
-                  <span>Share to client's profile (Case Notes)</span>
+                  <span>Mark as confidential (only visible to you and administrators/managers)</span>
                 </label>
                 <div className="form-actions">
                   <Button type="button" variant="secondary" onClick={() => setShowNoteForm(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit">Save Note</Button>
+                  <Button type="submit" disabled={submittingNote}>
+                    {submittingNote ? 'Saving...' : 'Save Note'}
+                  </Button>
                 </div>
               </form>
             </Card>
           )}
 
           <Card style={{ padding: 0 }}>
-            {notes.length === 0 ? (
+            {savedNotes.length === 0 ? (
               <EmptyState
                 icon={StickyNote}
-                title="No notes yet"
-                text="Notes logged here can optionally be shared back to a client's Case Notes tab."
+                title="No notes saved this session"
+                text="Notes you add here are written straight to the client's Case Notes tab."
               />
             ) : (
               <div className="data-table">
@@ -322,20 +448,20 @@ export default function AttendanceRegister() {
                   <span>Client</span>
                   <span>Note</span>
                   <span>Date</span>
-                  <span>Shared</span>
+                  <span>Confidential</span>
                 </div>
-                {notes.map((n) => (
+                {savedNotes.map((n) => (
                   <div className="data-row notes-row" key={n.id}>
                     <div className="client-identity">
-                      <div className="client-avatar">{n.client?.initials}</div>
-                      <span>{n.client?.name}</span>
+                      <div className="client-avatar">{initials(n.clientName || '—')}</div>
+                      <span>{n.clientName}</span>
                     </div>
-                    <span className="data-cell-muted">{n.note}</span>
-                    <span className="data-cell-muted">{n.date}</span>
-                    {n.shared ? (
-                      <StatusPill tone="success">Shared</StatusPill>
+                    <span className="data-cell-muted">{n.content}</span>
+                    <span className="data-cell-muted">{n.note_date}</span>
+                    {n.confidential ? (
+                      <StatusPill tone="danger">Confidential</StatusPill>
                     ) : (
-                      <StatusPill tone="neutral">Not shared</StatusPill>
+                      <StatusPill tone="neutral">No</StatusPill>
                     )}
                   </div>
                 ))}
