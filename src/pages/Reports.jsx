@@ -301,6 +301,7 @@ export default function Reports() {
   const toast = useToast()
   const [activeTab, setActiveTab] = useState(REPORT_TABS[0].key)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
   const [notesCount, setNotesCount] = useState(0)
   const [goalsCount, setGoalsCount] = useState(0)
   const [detailsCount, setDetailsCount] = useState(0)
@@ -358,6 +359,7 @@ export default function Reports() {
   }, [])
 
   useEffect(() => {
+    setLoadError(null)
     Promise.all([
       countClientNotes(),
       countClientGoals(),
@@ -428,6 +430,7 @@ export default function Reports() {
           setGroupAttendanceReport(groupAttendanceReportResult)
         },
       )
+      .catch((err) => setLoadError(err.message))
       .finally(() => setLoading(false))
   }, [])
 
@@ -531,6 +534,12 @@ export default function Reports() {
 
   return (
     <>
+      {loadError && (
+        <Card style={{ marginBottom: 18, borderColor: 'rgba(248, 113, 113, 0.4)' }}>
+          <div style={{ fontWeight: 700, marginBottom: 4, color: '#f87171' }}>Couldn't load report data</div>
+          <div className="data-cell-muted">{loadError}</div>
+        </Card>
+      )}
       <div className="stats-grid">
         {REPORT_TABS.map(({ key, icon, tone }, i) => (
           <div key={key} className="fade-up" style={{ animationDelay: `${i * 80}ms` }}>
