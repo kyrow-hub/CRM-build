@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus, TrendingUp } from 'lucide-react'
 import Card from '../ui/Card.jsx'
 import Button from '../ui/Button.jsx'
@@ -6,6 +6,8 @@ import StatusPill from '../ui/StatusPill.jsx'
 import EmptyState from '../ui/EmptyState.jsx'
 import { useClientGoals } from '../../hooks/useClientGoals.js'
 import { createClientGoal } from '../../services/clientGoalService.js'
+import { listAssignableWorkers } from '../../services/clientService.js'
+import { GOAL_TYPES } from '../../data/assessmentOptions.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 
@@ -18,15 +20,22 @@ const STATUS_TONE = {
   'Not Achieved': 'danger',
 }
 
-const emptyForm = { title: '', targetDate: '', status: 'Not Started', notes: '' }
+const emptyForm = { title: '', targetDate: '', status: 'Not Started', actions: '', responsiblePerson: '', notes: '' }
 
 export default function GoalsOutcomesPanel({ clientId, clientName }) {
   const { user } = useAuth()
   const toast = useToast()
   const { goals, loading, error, refetch } = useClientGoals(clientId)
+  const [workers, setWorkers] = useState([])
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    listAssignableWorkers()
+      .then(setWorkers)
+      .catch(() => setWorkers([]))
+  }, [])
 
   const handleAdd = async (e) => {
     e.preventDefault()
@@ -38,6 +47,8 @@ export default function GoalsOutcomesPanel({ clientId, clientName }) {
         title: form.title.trim(),
         target_date: form.targetDate || null,
         status: form.status,
+        actions: form.actions.trim() || null,
+        responsible_person: form.responsiblePerson || null,
         notes: form.notes || null,
         created_by: user?.id,
       })
@@ -78,11 +89,17 @@ export default function GoalsOutcomesPanel({ clientId, clientName }) {
                 <input
                   id="goal-title"
                   className="input"
+                  list="goal-type-options"
                   placeholder="e.g. Improve school attendance"
                   value={form.title}
                   onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
                   required
                 />
+                <datalist id="goal-type-options">
+                  {GOAL_TYPES.map((g) => (
+                    <option key={g} value={g} />
+                  ))}
+                </datalist>
               </div>
               <div>
                 <label className="form-label" htmlFor="goal-date">
@@ -113,6 +130,37 @@ export default function GoalsOutcomesPanel({ clientId, clientName }) {
                   ))}
                 </select>
               </div>
+              <div>
+                <label className="form-label" htmlFor="goal-responsible">
+                  Responsible Person
+                </label>
+                <select
+                  id="goal-responsible"
+                  className="input"
+                  value={form.responsiblePerson}
+                  onChange={(e) => setForm((f) => ({ ...f, responsiblePerson: e.target.value }))}
+                >
+                  <option value="">Unassigned</option>
+                  {workers.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {[w.first_name, w.last_name].filter(Boolean).join(' ') || w.id}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div style={{ marginTop: 14 }}>
+              <label className="form-label" htmlFor="goal-actions">
+                Actions
+              </label>
+              <textarea
+                id="goal-actions"
+                className="input"
+                rows={2}
+                placeholder="Steps agreed to work toward this goal..."
+                value={form.actions}
+                onChange={(e) => setForm((f) => ({ ...f, actions: e.target.value }))}
+              />
             </div>
             <div style={{ marginTop: 14 }}>
               <label className="form-label" htmlFor="goal-notes">
@@ -158,14 +206,23 @@ export default function GoalsOutcomesPanel({ clientId, clientName }) {
               <span>Status</span>
               <span className="goals-col-notes">Outcome Notes</span>
             </div>
-            {goals.map((g) => (
+            {goals.map((g) => {
+              const responsibleName = g.responsible
+                ? [g.responsible.first_name, g.responsible.last_name].filter(Boolean).join(' ')
+                : null
+              return (
               <div className="data-row goals-row" key={g.id}>
-                <span>{g.title}</span>
+                <span>
+                  {g.title}
+                  {responsibleName && <div className="data-cell-muted" style={{ fontSize: 11.5 }}>Responsible: {responsibleName}</div>}
+                  {g.actions && <div className="data-cell-muted" style={{ fontSize: 11.5 }}>Actions: {g.actions}</div>}
+                </span>
                 <span className="data-cell-muted goals-col-date">{g.target_date || '—'}</span>
                 <StatusPill tone={STATUS_TONE[g.status] ?? 'neutral'}>{g.status}</StatusPill>
                 <span className="data-cell-muted goals-col-notes">{g.notes || '—'}</span>
               </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </Card>

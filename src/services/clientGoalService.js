@@ -1,9 +1,11 @@
 import { supabase } from '../lib/supabase.js'
 
+const GOAL_COLUMNS = '*, responsible:profiles!responsible_person(id, first_name, last_name)'
+
 export async function listClientGoals(clientId) {
   const { data, error } = await supabase
     .from('client_goals')
-    .select('*')
+    .select(GOAL_COLUMNS)
     .eq('client_id', clientId)
     .order('created_at', { ascending: false })
   if (error) throw error
@@ -12,7 +14,7 @@ export async function listClientGoals(clientId) {
 
 export async function createClientGoal(input) {
   if (!input.title?.trim()) throw new Error('Goal title is required.')
-  const { data, error } = await supabase.from('client_goals').insert(input).select('*').single()
+  const { data, error } = await supabase.from('client_goals').insert(input).select(GOAL_COLUMNS).single()
   if (error) throw error
   return data
 }

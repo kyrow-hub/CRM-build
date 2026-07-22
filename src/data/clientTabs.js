@@ -10,6 +10,7 @@ import {
   CalendarClock,
   Folder,
   Users,
+  ClipboardCheck,
 } from 'lucide-react'
 
 export const CLIENT_TABS = [
@@ -75,6 +76,13 @@ export const CLIENT_TABS = [
     icon: BookOpen,
     emptyTitle: 'Not enrolled in any programs',
     emptyText: 'Programs this client is enrolled in will appear here.',
+  },
+  {
+    key: 'assessments',
+    label: 'Assessments',
+    icon: ClipboardCheck,
+    emptyTitle: 'No assessments recorded yet',
+    emptyText: 'Intake, review, and exit assessments (risk, needs, SEWB, and outcomes) will appear here.',
   },
   {
     key: 'follow-ups',

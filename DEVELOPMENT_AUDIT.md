@@ -36,10 +36,11 @@ gated by Supabase Auth plus role-based RLS policies (see `supabase/migrations/`)
 | Activities | `case_activities` | Confidentiality-aware (private entries visible only to their author and admins/managers). |
 | Case Notes | `client_notes` | Category dropdown backed by `src/data/noteCategories.js` (16 service-delivery categories); confidentiality-aware. |
 | Referrals | `referrals` | Full CRUD. |
-| Goals & Outcomes | `client_goals` | Full CRUD. |
+| Goals & Outcomes | `client_goals` | Full CRUD, including target date, actions, responsible person, and progress status. |
 | Outcomes | `client_outcomes` | Confidentiality-aware. |
 | Staff Register | `client_staff_assignments` | Role-on-case assignments (Primary Case Worker, Program Worker, etc.), unique per client/worker/role. |
 | Programs | derived from `attendance` + `program_sessions` | Read-only summary of program involvement (sessions attended, first/last date); no separate table. |
+| Assessments | `client_assessments`, `client_service_plan_items` | Intake/Review/Exit assessments covering presenting issues, risk, needs, protective factors, the Bori Muy SEWB scale, and exit outcomes (SRS-style reporting fields), plus a service plan register. Confidentiality-aware. Goals from Section 6 of the assessment are managed on the Goals & Outcomes tab (now with Actions and Responsible Person). |
 | Follow Ups | `client_follow_ups` | Pending/Completed/Cancelled workflow with overdue detection. |
 | Documents | `client_documents` + `client-documents` Storage bucket | Upload/download/delete with confidentiality-aware RLS mirrored at the storage layer. |
 
