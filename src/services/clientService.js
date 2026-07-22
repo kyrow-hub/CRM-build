@@ -74,6 +74,16 @@ export async function archiveClient(id) {
   return data
 }
 
+export async function countClientsWithDetails() {
+  const { count, error } = await supabase
+    .from('clients')
+    .select('id', { count: 'exact', head: true })
+    .is('archived_at', null)
+    .or('gender.not.is.null,indigenous_status.not.is.null,date_of_birth.not.is.null')
+  if (error) throw error
+  return count ?? 0
+}
+
 export async function listAssignableWorkers() {
   const { data, error } = await supabase
     .from('profiles')
