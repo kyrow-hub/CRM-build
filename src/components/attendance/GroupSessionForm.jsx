@@ -18,6 +18,7 @@ const emptySessionForm = {
   location: '',
   activityType: '',
   facilitatorId: '',
+  overnightCamp: false,
 }
 
 export default function GroupSessionForm({ programs, workers, clients, onCancel, onSaved }) {
@@ -73,6 +74,7 @@ export default function GroupSessionForm({ programs, workers, clients, onCancel,
         location: sessionForm.location || null,
         activity_type: sessionForm.activityType || null,
         facilitator_id: sessionForm.facilitatorId || null,
+        overnight_camp: sessionForm.overnightCamp,
         group_note: groupNote.trim(),
         created_by: user?.id,
       })
@@ -213,6 +215,14 @@ export default function GroupSessionForm({ programs, workers, clients, onCancel,
             </select>
           </div>
         </div>
+        <label className="checkbox-field">
+          <input
+            type="checkbox"
+            checked={sessionForm.overnightCamp}
+            onChange={(e) => setSessionForm((f) => ({ ...f, overnightCamp: e.target.checked }))}
+          />
+          <span>This is an overnight camp</span>
+        </label>
 
         <div className="form-section-title" style={{ marginTop: 22 }}>
           Participants
