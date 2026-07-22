@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { FileText, Share2, TrendingUp, Award, Activity, PackageCheck, Users, Download, Gauge, BarChart3, Tent, StickyNote, Sparkles, Plus, ClipboardList } from 'lucide-react'
+import { FileText, Share2, TrendingUp, Award, Activity, PackageCheck, Users, Download, Gauge, BarChart3, Tent, StickyNote, Sparkles, Plus, ClipboardList, FileSpreadsheet } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import Button from '../components/ui/Button.jsx'
 import StatCard from '../components/ui/StatCard.jsx'
@@ -23,6 +23,7 @@ import { useToast } from '../context/ToastContext.jsx'
 import { initials } from '../utils/initials.js'
 import { avatarTone } from '../utils/avatarColor.js'
 import { downloadCsv } from '../utils/exportCsv.js'
+import { downloadXlsx } from '../utils/exportXlsx.js'
 
 const GOAL_STATUS_TONE = {
   'Not Started': 'neutral',
@@ -57,7 +58,10 @@ const REPORT_TABS = [
   { key: 'group-notes', label: 'Group Note Report', icon: StickyNote, tone: 'violet' },
   { key: 'good-news', label: 'Good News Stories', icon: Sparkles, tone: 'lime' },
   { key: 'group-attendance', label: 'Group Attendance', icon: ClipboardList, tone: 'amber' },
+  { key: 'full-report', label: 'Full Service Report', icon: FileSpreadsheet, tone: 'rose' },
 ]
+
+const FULL_REPORT_SHEET_COUNT = 12
 
 const ATTENDANCE_STATUS_TONE = {
   Present: 'success',
@@ -335,6 +339,7 @@ export default function Reports() {
   const [showGoodNewsForm, setShowGoodNewsForm] = useState(false)
   const [goodNewsForm, setGoodNewsForm] = useState(emptyGoodNewsForm)
   const [submittingGoodNews, setSubmittingGoodNews] = useState(false)
+  const [downloadingFullReport, setDownloadingFullReport] = useState(false)
   const [groupAttendanceReport, setGroupAttendanceReport] = useState({
     sessions: [],
     totalSessions: 0,
@@ -451,6 +456,7 @@ export default function Reports() {
     'group-notes': { label: 'Group Notes Written', value: groupNoteSessions.length },
     'good-news': { label: 'Good News Stories', value: goodNewsStories.length },
     'group-attendance': { label: 'Group Sessions Attended', value: groupAttendanceReport.totalSessions },
+    'full-report': { label: 'Report Sections', value: FULL_REPORT_SHEET_COUNT },
   }
 
   const groupAttendancePresentRate = formatPercent(groupAttendanceReport.presentCount, groupAttendanceReport.totalRecords)
@@ -529,6 +535,31 @@ export default function Reports() {
       toast.error(err.message)
     } finally {
       setSubmittingGoodNews(false)
+    }
+  }
+
+  const handleDownloadFullReport = async () => {
+    setDownloadingFullReport(true)
+    try {
+      await downloadXlsx('bori-muy-full-service-report.xlsx', [
+        { name: 'Case Notes', rows: notesToRows(notes) },
+        { name: 'Case Activities', rows: activitiesToRows(activities) },
+        { name: 'Referrals', rows: referralsToRows(referrals) },
+        { name: 'Goals', rows: goalsToRows(goals) },
+        { name: 'Outcomes', rows: outcomesToRows(outcomes) },
+        { name: 'Demographics', rows: demographicsToRows(clientsForReports) },
+        { name: 'Program Performance', rows: programPerformanceToRows(programPerformance) },
+        { name: 'Overnight Camps', rows: campSessionsToRows(campReport.sessions) },
+        { name: 'Group Notes', rows: groupNotesToRows(groupNoteSessions) },
+        { name: 'Group Attendance', rows: groupAttendanceToRows(groupAttendanceReport.sessions) },
+        { name: 'Good News Stories', rows: goodNewsStoriesToRows(goodNewsStories) },
+        { name: 'KPI Summary', rows: kpiToRows(kpiData) },
+      ])
+      toast.success('Full service report downloaded.')
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setDownloadingFullReport(false)
     }
   }
 
@@ -1418,6 +1449,41 @@ export default function Reports() {
                 )}
               </Card>
             </>
+          ) : activeTab === 'full-report' ? (
+            <Card>
+              <div className="section-title" style={{ marginBottom: 6 }}>
+                Full Service Report
+              </div>
+              <div className="section-subtitle" style={{ marginBottom: 20 }}>
+                One Excel workbook with every report below as its own sheet — hand this straight to funders, your
+                board, or import it into Excel/Power BI.
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
+                {[
+                  ['Case Notes', notes.length],
+                  ['Case Activities', activities.length],
+                  ['Referrals', referrals.length],
+                  ['Goals', goals.length],
+                  ['Outcomes', outcomes.length],
+                  ['Demographics', clientsForReports.length],
+                  ['Program Performance', programPerformance.length],
+                  ['Overnight Camps', campReport.sessions.length],
+                  ['Group Notes', groupNoteSessions.length],
+                  ['Group Attendance', groupAttendanceReport.sessions.length],
+                  ['Good News Stories', goodNewsStories.length],
+                  ['KPI Summary', 8],
+                ].map(([label, count]) => (
+                  <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5 }}>
+                    <span>{label}</span>
+                    <span className="data-cell-muted">{loading ? '—' : `${count} row${count === 1 ? '' : 's'}`}</span>
+                  </div>
+                ))}
+              </div>
+              <Button onClick={handleDownloadFullReport} disabled={downloadingFullReport || loading}>
+                <FileSpreadsheet strokeWidth={2} />
+                {downloadingFullReport ? 'Building workbook...' : 'Download Full Report (Excel)'}
+              </Button>
+            </Card>
           ) : (
             <Card>
               <EmptyState icon={PackageCheck} title="Nothing to show" text="This tab doesn't have a view configured." />
