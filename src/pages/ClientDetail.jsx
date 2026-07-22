@@ -229,7 +229,7 @@ export default function ClientDetail() {
               </div>
             </Card>
           ) : activeTab === 'case-notes' ? (
-            <CaseNotesPanel key={client.id} clientName={fullName} />
+            <CaseNotesPanel key={client.id} clientId={client.id} clientName={fullName} />
           ) : activeTab === 'goals-outcomes' ? (
             <GoalsOutcomesPanel key={client.id} clientName={fullName} />
           ) : (
