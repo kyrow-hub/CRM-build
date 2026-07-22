@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { FileText, Share2, TrendingUp, Award, Activity, PackageCheck, Users, Download, Gauge, BarChart3, Tent } from 'lucide-react'
+import { FileText, Share2, TrendingUp, Award, Activity, PackageCheck, Users, Download, Gauge, BarChart3, Tent, StickyNote } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import Button from '../components/ui/Button.jsx'
 import StatCard from '../components/ui/StatCard.jsx'
@@ -14,6 +14,7 @@ import { countOutcomesByCategory, listAllOutcomes } from '../services/outcomeSer
 import { getEngagedClientCount, getProgramHoursStats, getAttendanceStats, getGoalStatusCounts } from '../services/kpiService.js'
 import { getProgramPerformance } from '../services/programPerformanceService.js'
 import { getCampReport } from '../services/campReportService.js'
+import { listGroupNoteReport } from '../services/groupSessionService.js'
 import { downloadCsv } from '../utils/exportCsv.js'
 
 const GOAL_STATUS_TONE = {
@@ -46,6 +47,7 @@ const REPORT_TABS = [
   { key: 'kpi', label: 'KPI Report', icon: Gauge, tone: 'indigo' },
   { key: 'program-performance', label: 'Program Performance', icon: BarChart3, tone: 'red' },
   { key: 'camps', label: 'Overnight Camps', icon: Tent, tone: 'cyan' },
+  { key: 'group-notes', label: 'Group Note Report', icon: StickyNote, tone: 'violet' },
 ]
 
 function formatPercent(numerator, denominator) {
@@ -200,6 +202,19 @@ function campOutcomesToRows(outcomes) {
   }))
 }
 
+function groupNotesToRows(sessions) {
+  return sessions.map((s) => ({
+    Program: s.program?.name ?? '',
+    'Activity Type': s.activity_type || '',
+    Date: s.session_date,
+    Location: s.location || '',
+    Facilitator: s.facilitator ? [s.facilitator.first_name, s.facilitator.last_name].filter(Boolean).join(' ') : '',
+    Participants: s.participantCount,
+    'Overnight Camp': s.overnight_camp ? 'Yes' : 'No',
+    'Group Note': s.group_note,
+  }))
+}
+
 function ExportButton({ rows, filename }) {
   return (
     <Button
@@ -265,6 +280,7 @@ export default function Reports() {
     notes: [],
     outcomes: [],
   })
+  const [groupNoteSessions, setGroupNoteSessions] = useState([])
 
   useEffect(() => {
     Promise.all([
@@ -286,6 +302,7 @@ export default function Reports() {
       getGoalStatusCounts(),
       getProgramPerformance(),
       getCampReport(),
+      listGroupNoteReport(),
     ])
       .then(
         ([
@@ -307,6 +324,7 @@ export default function Reports() {
           goalStatuses,
           programPerformanceResult,
           campReportResult,
+          groupNoteSessionsResult,
         ]) => {
           setNotesCount(nCount)
           setGoalsCount(gCount)
@@ -326,6 +344,7 @@ export default function Reports() {
           setGoalStatusCounts(goalStatuses)
           setProgramPerformance(programPerformanceResult)
           setCampReport(campReportResult)
+          setGroupNoteSessions(groupNoteSessionsResult)
         },
       )
       .finally(() => setLoading(false))
@@ -345,6 +364,7 @@ export default function Reports() {
     kpi: { label: 'Young People Supported', value: engagedClientCount },
     'program-performance': { label: 'Programs Delivered', value: programPerformance.filter((p) => p.sessionCount > 0).length },
     camps: { label: 'Overnight Camps Run', value: campReport.totalCamps },
+    'group-notes': { label: 'Group Notes Written', value: groupNoteSessions.length },
   }
 
   const activeCount = clientsForReports.filter((c) => c.status === 'active' && !c.archived_at).length
@@ -393,6 +413,11 @@ export default function Reports() {
   const overallAvgAttendance = totalGroupsRun ? totalProgramAttendance / totalGroupsRun : 0
 
   const repeatCamperEntries = campReport.repeatCampers.map((c) => [c.name, c.campsAttended])
+
+  const totalGroupNoteParticipants = groupNoteSessions.reduce((sum, s) => sum + s.participantCount, 0)
+  const avgParticipantsPerGroupNote = groupNoteSessions.length
+    ? (totalGroupNoteParticipants / groupNoteSessions.length).toFixed(1)
+    : '—'
 
   return (
     <>
@@ -940,6 +965,73 @@ export default function Reports() {
                         <span className="data-cell-muted goals-col-notes">{o.notes || '—'}</span>
                       </div>
                     ))}
+                  </div>
+                )}
+              </Card>
+            </>
+          ) : activeTab === 'group-notes' ? (
+            <>
+              <ExportButton rows={groupNotesToRows(groupNoteSessions)} filename="group-note-report.csv" />
+              <div className="details-grid" style={{ marginBottom: 18 }}>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Group Notes Written
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : groupNoteSessions.length}
+                  </div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Total Attendee Reach
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : totalGroupNoteParticipants}
+                  </div>
+                  <div className="data-cell-muted">Sum of participants across every group note</div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Avg. Participants per Note
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : avgParticipantsPerGroupNote}
+                  </div>
+                </Card>
+              </div>
+              <Card style={!loading && groupNoteSessions.length === 0 ? undefined : { padding: 0 }}>
+                {loading ? (
+                  <EmptyState icon={StickyNote} title="Loading..." text="Fetching group notes." />
+                ) : groupNoteSessions.length === 0 ? (
+                  <EmptyState
+                    icon={StickyNote}
+                    title="No group notes yet"
+                    text="The shared note written when you save a Group Session in Attendance Register will appear here."
+                  />
+                ) : (
+                  <div className="note-list">
+                    {groupNoteSessions.map((s) => {
+                      const facilitatorName = s.facilitator
+                        ? [s.facilitator.first_name, s.facilitator.last_name].filter(Boolean).join(' ')
+                        : 'No facilitator recorded'
+                      return (
+                        <div className="note-item" key={s.id}>
+                          <div className="note-item-meta">
+                            <span>
+                              {s.program?.name ?? 'Program'}
+                              {s.activity_type ? ` · ${s.activity_type}` : ''} · {facilitatorName}
+                            </span>
+                            <span>{s.session_date}</span>
+                          </div>
+                          <div className="data-cell-muted" style={{ marginBottom: 8 }}>
+                            {s.location ? `${s.location} · ` : ''}
+                            {s.participantCount} participant{s.participantCount === 1 ? '' : 's'}
+                            {s.overnight_camp ? ' · Overnight Camp' : ''}
+                          </div>
+                          <div className="note-item-text">{s.group_note}</div>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </Card>

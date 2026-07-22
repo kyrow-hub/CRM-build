@@ -94,6 +94,25 @@ export async function listGroupSessions() {
   return data
 }
 
+// All group sessions with their shared note plus a participant count, for
+// the Group Note Report - a cross-session view of every group note ever
+// written, independent of which program or whether it was a camp.
+export async function listGroupNoteReport() {
+  const sessions = await listGroupSessions()
+  if (sessions.length === 0) return []
+
+  const sessionIds = sessions.map((s) => s.id)
+  const { data: attendance, error } = await supabase.from('attendance').select('session_id').in('session_id', sessionIds)
+  if (error) throw error
+
+  const countBySession = {}
+  for (const record of attendance) {
+    countBySession[record.session_id] = (countBySession[record.session_id] ?? 0) + 1
+  }
+
+  return sessions.map((s) => ({ ...s, participantCount: countBySession[s.id] ?? 0 }))
+}
+
 export async function listSessionAttendance(sessionId) {
   const { data, error } = await supabase
     .from('attendance')

@@ -642,6 +642,12 @@ button {
   color: #22d3ee;
 }
 
+.avatar--violet,
+.stat-card-icon--violet {
+  background: rgba(167, 139, 250, 0.14);
+  color: #a78bfa;
+}
+
 .clients-cell-muted {
   color: var(--muted);
   font-size: 13px;
