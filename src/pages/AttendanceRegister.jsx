@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react'
-import { Plus, ClipboardCheck, StickyNote, PackageCheck } from 'lucide-react'
+import { Plus, ClipboardCheck, StickyNote, PackageCheck, Users2 } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import Button from '../components/ui/Button.jsx'
 import StatusPill from '../components/ui/StatusPill.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
-import { listClients } from '../services/clientService.js'
+import GroupSessionForm from '../components/attendance/GroupSessionForm.jsx'
+import GroupSessionsList from '../components/attendance/GroupSessionsList.jsx'
+import { listClients, listAssignableWorkers } from '../services/clientService.js'
 import { usePrograms } from '../hooks/usePrograms.js'
 import { createProgram } from '../services/programService.js'
 import { useAttendanceRecords } from '../hooks/useAttendanceRecords.js'
+import { useGroupSessions } from '../hooks/useGroupSessions.js'
 import { getOrCreateSession, createAttendanceRecord } from '../services/attendanceService.js'
 import { createClientNote } from '../services/clientNoteService.js'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -17,7 +20,9 @@ import { initials } from '../utils/initials.js'
 const ATTENDANCE_STATUS_TONE = {
   Present: 'success',
   Absent: 'danger',
-  Excused: 'warning',
+  Late: 'warning',
+  'Left Early': 'warning',
+  Excused: 'neutral',
 }
 
 const REGISTER_TABS = [
@@ -46,11 +51,14 @@ export default function AttendanceRegister() {
   const toast = useToast()
   const [activeTab, setActiveTab] = useState('register')
   const [clients, setClients] = useState([])
+  const [workers, setWorkers] = useState([])
   const { programs, loading: programsLoading, refetch: refetchPrograms } = usePrograms()
   const { records, loading: recordsLoading, error: recordsError, refetch: refetchRecords } = useAttendanceRecords()
+  const { sessions: groupSessions, loading: groupSessionsLoading, error: groupSessionsError, refetch: refetchGroupSessions } = useGroupSessions()
 
   const [showAttendanceForm, setShowAttendanceForm] = useState(false)
   const [showProgramForm, setShowProgramForm] = useState(false)
+  const [showGroupSessionForm, setShowGroupSessionForm] = useState(false)
   const [showNoteForm, setShowNoteForm] = useState(false)
   const [attendanceForm, setAttendanceForm] = useState(emptyAttendanceForm)
   const [programForm, setProgramForm] = useState(emptyProgramForm)
@@ -63,7 +71,16 @@ export default function AttendanceRegister() {
     listClients()
       .then(setClients)
       .catch(() => setClients([]))
+    listAssignableWorkers()
+      .then(setWorkers)
+      .catch(() => setWorkers([]))
   }, [])
+
+  const handleGroupSessionSaved = () => {
+    setShowGroupSessionForm(false)
+    refetchGroupSessions()
+    refetchRecords()
+  }
 
   const handleAddProgram = async (e) => {
     e.preventDefault()
@@ -155,17 +172,19 @@ export default function AttendanceRegister() {
         <div className="fade-up" style={{ marginTop: 20 }}>
           <div className="section-head">
             <div>
-              <div className="section-title">Attendance Records</div>
-              <div className="section-subtitle">{recordsLoading ? 'Loading...' : `${records.length} total records`}</div>
+              <div className="section-title">Group Sessions</div>
+              <div className="section-subtitle">
+                Log a session once — attendance and case notes are created for every participant automatically
+              </div>
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <Button variant="secondary" onClick={() => setShowProgramForm((v) => !v)}>
                 <Plus strokeWidth={2} />
                 New Program
               </Button>
-              <Button onClick={() => setShowAttendanceForm((v) => !v)}>
-                <Plus strokeWidth={2} />
-                Add Attendance
+              <Button onClick={() => setShowGroupSessionForm((v) => !v)}>
+                <Users2 strokeWidth={2} />
+                New Group Session
               </Button>
             </div>
           </div>
@@ -207,6 +226,31 @@ export default function AttendanceRegister() {
               </form>
             </Card>
           )}
+
+          {showGroupSessionForm && (
+            <GroupSessionForm
+              programs={programs}
+              workers={workers}
+              clients={clients}
+              onCancel={() => setShowGroupSessionForm(false)}
+              onSaved={handleGroupSessionSaved}
+            />
+          )}
+
+          <div style={{ marginBottom: 24 }}>
+            <GroupSessionsList sessions={groupSessions} loading={groupSessionsLoading} error={groupSessionsError} />
+          </div>
+
+          <div className="section-head">
+            <div>
+              <div className="section-title">Individual Attendance Records</div>
+              <div className="section-subtitle">{recordsLoading ? 'Loading...' : `${records.length} total records`}</div>
+            </div>
+            <Button onClick={() => setShowAttendanceForm((v) => !v)}>
+              <Plus strokeWidth={2} />
+              Add Attendance
+            </Button>
+          </div>
 
           {showAttendanceForm && (
             <Card style={{ marginBottom: 18 }}>
@@ -281,6 +325,8 @@ export default function AttendanceRegister() {
                       >
                         <option>Present</option>
                         <option>Absent</option>
+                        <option>Late</option>
+                        <option>Left Early</option>
                         <option>Excused</option>
                       </select>
                     </div>
