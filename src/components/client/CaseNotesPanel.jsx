@@ -8,15 +8,14 @@ import { useClientNotes } from '../../hooks/useClientNotes.js'
 import { createClientNote } from '../../services/clientNoteService.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
-
-const NOTE_TYPES = ['General', 'Case Review', 'Progress Update', 'Incident', 'Other']
+import { NOTE_CATEGORIES } from '../../data/noteCategories.js'
 
 export default function CaseNotesPanel({ clientId, clientName }) {
   const { user } = useAuth()
   const toast = useToast()
   const { notes, loading, error, refetch } = useClientNotes(clientId)
   const [showForm, setShowForm] = useState(false)
-  const [noteType, setNoteType] = useState(NOTE_TYPES[0])
+  const [noteType, setNoteType] = useState(NOTE_CATEGORIES[0])
   const [content, setContent] = useState('')
   const [confidential, setConfidential] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -66,10 +65,10 @@ export default function CaseNotesPanel({ clientId, clientName }) {
             <div className="form-grid">
               <div>
                 <label className="form-label" htmlFor="note-type">
-                  Note Type
+                  Category
                 </label>
                 <select id="note-type" className="input" value={noteType} onChange={(e) => setNoteType(e.target.value)}>
-                  {NOTE_TYPES.map((t) => (
+                  {NOTE_CATEGORIES.map((t) => (
                     <option key={t} value={t}>
                       {t}
                     </option>

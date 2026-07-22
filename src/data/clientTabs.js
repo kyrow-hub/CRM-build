@@ -9,7 +9,6 @@ import {
   BookOpen,
   CalendarClock,
   Folder,
-  PackageCheck,
 } from 'lucide-react'
 
 export const CLIENT_TABS = [
@@ -82,12 +81,5 @@ export const CLIENT_TABS = [
     icon: Folder,
     emptyTitle: 'No documents uploaded',
     emptyText: 'Files and documents related to this client will appear here.',
-  },
-  {
-    key: 'service-delivery',
-    label: 'Service Delivery',
-    icon: PackageCheck,
-    emptyTitle: 'No services delivered yet',
-    emptyText: 'A record of services delivered to this client will appear here.',
   },
 ]
