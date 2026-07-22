@@ -751,6 +751,10 @@ textarea.input {
   grid-template-columns: 1.4fr 1.2fr 1.6fr;
 }
 
+.team-row {
+  grid-template-columns: 1.4fr 1.6fr 1fr 1.6fr;
+}
+
 @media (max-width: 900px) {
   .attendance-row {
     grid-template-columns: 1.5fr 1fr 0.9fr;

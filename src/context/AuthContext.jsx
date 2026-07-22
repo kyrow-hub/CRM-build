@@ -63,6 +63,8 @@ export function AuthProvider({ children }) {
     await supabase.auth.signOut()
   }, [])
 
+  const refreshProfile = useCallback(() => loadProfile(session?.user?.id), [loadProfile, session])
+
   const value = {
     session,
     user: session?.user ?? null,
@@ -71,6 +73,7 @@ export function AuthProvider({ children }) {
     error,
     signIn,
     signOut,
+    refreshProfile,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
