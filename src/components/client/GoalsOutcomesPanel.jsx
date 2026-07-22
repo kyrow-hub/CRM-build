@@ -4,6 +4,10 @@ import Card from '../ui/Card.jsx'
 import Button from '../ui/Button.jsx'
 import StatusPill from '../ui/StatusPill.jsx'
 import EmptyState from '../ui/EmptyState.jsx'
+import { useClientGoals } from '../../hooks/useClientGoals.js'
+import { createClientGoal } from '../../services/clientGoalService.js'
+import { useAuth } from '../../context/AuthContext.jsx'
+import { useToast } from '../../context/ToastContext.jsx'
 
 const STATUS_OPTIONS = ['Not Started', 'In Progress', 'Achieved', 'Not Achieved']
 
@@ -16,17 +20,36 @@ const STATUS_TONE = {
 
 const emptyForm = { title: '', targetDate: '', status: 'Not Started', notes: '' }
 
-export default function GoalsOutcomesPanel({ clientName }) {
-  const [goals, setGoals] = useState([])
+export default function GoalsOutcomesPanel({ clientId, clientName }) {
+  const { user } = useAuth()
+  const toast = useToast()
+  const { goals, loading, error, refetch } = useClientGoals(clientId)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyForm)
+  const [submitting, setSubmitting] = useState(false)
 
-  const handleAdd = (e) => {
+  const handleAdd = async (e) => {
     e.preventDefault()
     if (!form.title.trim()) return
-    setGoals((prev) => [{ id: Date.now(), ...form, title: form.title.trim() }, ...prev])
-    setForm(emptyForm)
-    setShowForm(false)
+    setSubmitting(true)
+    try {
+      await createClientGoal({
+        client_id: clientId,
+        title: form.title.trim(),
+        target_date: form.targetDate || null,
+        status: form.status,
+        notes: form.notes || null,
+        created_by: user?.id,
+      })
+      toast.success('Goal added.')
+      setForm(emptyForm)
+      setShowForm(false)
+      refetch()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -35,7 +58,7 @@ export default function GoalsOutcomesPanel({ clientName }) {
         <div>
           <div className="section-title">Goals & Outcomes</div>
           <div className="section-subtitle">
-            {goals.length} {goals.length === 1 ? 'goal' : 'goals'} for {clientName}
+            {loading ? 'Loading...' : `${goals.length} ${goals.length === 1 ? 'goal' : 'goals'} for ${clientName}`}
           </div>
         </div>
         <Button onClick={() => setShowForm((v) => !v)}>
@@ -108,14 +131,20 @@ export default function GoalsOutcomesPanel({ clientName }) {
               <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>
                 Cancel
               </Button>
-              <Button type="submit">Save Goal</Button>
+              <Button type="submit" disabled={submitting}>
+                {submitting ? 'Saving...' : 'Save Goal'}
+              </Button>
             </div>
           </form>
         </Card>
       )}
 
-      <Card style={goals.length === 0 ? undefined : { padding: 0 }}>
-        {goals.length === 0 ? (
+      <Card style={!loading && goals.length === 0 ? undefined : { padding: 0 }}>
+        {loading ? (
+          <EmptyState icon={TrendingUp} title="Loading goals..." text="Fetching goals for this client." />
+        ) : error ? (
+          <EmptyState icon={TrendingUp} title="Couldn't load goals" text={error} />
+        ) : goals.length === 0 ? (
           <EmptyState
             icon={TrendingUp}
             title="No goals set yet"
@@ -132,7 +161,7 @@ export default function GoalsOutcomesPanel({ clientName }) {
             {goals.map((g) => (
               <div className="data-row goals-row" key={g.id}>
                 <span>{g.title}</span>
-                <span className="data-cell-muted goals-col-date">{g.targetDate || '—'}</span>
+                <span className="data-cell-muted goals-col-date">{g.target_date || '—'}</span>
                 <StatusPill tone={STATUS_TONE[g.status] ?? 'neutral'}>{g.status}</StatusPill>
                 <span className="data-cell-muted goals-col-notes">{g.notes || '—'}</span>
               </div>

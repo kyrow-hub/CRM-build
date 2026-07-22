@@ -231,7 +231,7 @@ export default function ClientDetail() {
           ) : activeTab === 'case-notes' ? (
             <CaseNotesPanel key={client.id} clientId={client.id} clientName={fullName} />
           ) : activeTab === 'goals-outcomes' ? (
-            <GoalsOutcomesPanel key={client.id} clientName={fullName} />
+            <GoalsOutcomesPanel key={client.id} clientId={client.id} clientName={fullName} />
           ) : (
             <Card>
               <EmptyState
