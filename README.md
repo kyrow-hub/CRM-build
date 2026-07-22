@@ -125,8 +125,11 @@ supabase/
 
 ## What's real vs. mock right now
 
-Authentication, Clients, Case Notes, Goals & Outcomes, Case Activities, Outcomes,
-Referrals, Attendance Register/Group Sessions, Reports, Leads, Partners, and Meetings are
-all wired to real Supabase tables. Settings is not built. See `DEVELOPMENT_AUDIT.md` for the
-full page-by-page breakdown, though note it was written early on and hasn't been kept fully
-in sync with every migration since.
+Every page is wired to real Supabase tables: Authentication, Dashboard, Clients, Case
+Notes, Goals & Outcomes, Case Activities, Outcomes, Referrals, Attendance Register/Group
+Sessions, Reports (including the KPI, Program Performance, Overnight Camp, Group Note,
+Group Attendance, and Good News Stories tabs), Leads, Partners, Meetings, and Settings
+(profile editing and team/role management). The only thing not built is inbound email
+(receiving/replying) - outbound sending was built and later removed at the user's request.
+See `DEVELOPMENT_AUDIT.md` for the original page-by-page breakdown, though note it was
+written early on and hasn't been kept fully in sync with every migration since.
