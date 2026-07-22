@@ -1,10 +1,9 @@
-import { Target, Handshake, DollarSign, Calendar, Activity } from 'lucide-react'
+import { Handshake, DollarSign, Calendar, Activity } from 'lucide-react'
 import StatCard from '../components/ui/StatCard.jsx'
 import Card from '../components/ui/Card.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
 
 const STATS = [
-  { label: 'Total Leads', value: '0', meta: 'No leads yet', icon: Target },
   { label: 'Active Deals', value: '0', meta: 'No deals in pipeline', icon: Handshake },
   { label: 'Revenue', value: '$0', meta: 'This quarter', icon: DollarSign },
   { label: 'Meetings This Week', value: '0', meta: 'Nothing scheduled', icon: Calendar },
@@ -13,7 +12,7 @@ const STATS = [
 export default function Dashboard() {
   return (
     <>
-      <div className="stats-grid">
+      <div className="stats-grid stats-grid--three">
         {STATS.map((stat, i) => (
           <div key={stat.label} className="fade-up" style={{ animationDelay: `${i * 80}ms` }}>
             <StatCard {...stat} />
