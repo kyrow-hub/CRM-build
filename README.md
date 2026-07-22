@@ -1,4 +1,4 @@
-# Coral CRM — Bori Muy LTD
+# Bori Muy CRM
 
 A React + Vite CRM. The visual shell (layout, design system, Leads/Partners/Attendance/etc.)
 runs on mock data; the Clients module and authentication are backed by a real

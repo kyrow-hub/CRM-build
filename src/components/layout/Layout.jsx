@@ -74,7 +74,7 @@ export default function Layout() {
     meta = partnerMeta ?? { title: 'Loading...' }
   }
 
-  meta = meta ?? { title: 'Coral CRM' }
+  meta = meta ?? { title: 'Bori Muy CRM' }
 
   return (
     <div className="app-shell">

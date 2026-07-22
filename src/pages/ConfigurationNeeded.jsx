@@ -5,8 +5,8 @@ export default function ConfigurationNeeded() {
     <div className="login-screen">
       <div className="login-card" style={{ maxWidth: 460 }}>
         <div className="sidebar-brand" style={{ marginBottom: 20, padding: 0 }}>
-          <div className="sidebar-brand-mark">C</div>
-          <span className="sidebar-brand-text">Coral CRM</span>
+          <div className="sidebar-brand-mark">B</div>
+          <span className="sidebar-brand-text">Bori Muy CRM</span>
         </div>
 
         <div className="login-error" style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 0 }}>

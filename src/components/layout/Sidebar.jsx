@@ -29,8 +29,8 @@ export default function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
-        <div className="sidebar-brand-mark">C</div>
-        <span className="sidebar-brand-text">Coral CRM</span>
+        <div className="sidebar-brand-mark">B</div>
+        <span className="sidebar-brand-text">Bori Muy CRM</span>
       </div>
 
       <nav className="sidebar-nav">
@@ -48,7 +48,7 @@ export default function Sidebar() {
       </nav>
 
       <div className="sidebar-footer">
-        <div className="sidebar-footer-label">Coral CRM v0.1</div>
+        <div className="sidebar-footer-label">Bori Muy CRM v0.1</div>
       </div>
     </aside>
   )
