@@ -648,6 +648,12 @@ button {
   color: #a78bfa;
 }
 
+.avatar--lime,
+.stat-card-icon--lime {
+  background: rgba(163, 230, 53, 0.14);
+  color: #a3e635;
+}
+
 .clients-cell-muted {
   color: var(--muted);
   font-size: 13px;

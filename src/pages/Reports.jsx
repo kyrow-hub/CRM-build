@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { FileText, Share2, TrendingUp, Award, Activity, PackageCheck, Users, Download, Gauge, BarChart3, Tent, StickyNote } from 'lucide-react'
+import { FileText, Share2, TrendingUp, Award, Activity, PackageCheck, Users, Download, Gauge, BarChart3, Tent, StickyNote, Sparkles, Plus } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import Button from '../components/ui/Button.jsx'
 import StatCard from '../components/ui/StatCard.jsx'
@@ -7,7 +7,7 @@ import StatusPill from '../components/ui/StatusPill.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
 import { countClientNotes, listAllClientNotes } from '../services/clientNoteService.js'
 import { countClientGoals, listAllClientGoals } from '../services/clientGoalService.js'
-import { countClientsWithDetails, listClientsForReports } from '../services/clientService.js'
+import { countClientsWithDetails, listClientsForReports, listClients } from '../services/clientService.js'
 import { countReferralsByStatus, listReferrals } from '../services/referralService.js'
 import { countCaseActivities, listAllCaseActivities } from '../services/caseActivityService.js'
 import { countOutcomesByCategory, listAllOutcomes } from '../services/outcomeService.js'
@@ -15,6 +15,10 @@ import { getEngagedClientCount, getProgramHoursStats, getAttendanceStats, getGoa
 import { getProgramPerformance } from '../services/programPerformanceService.js'
 import { getCampReport } from '../services/campReportService.js'
 import { listGroupNoteReport } from '../services/groupSessionService.js'
+import { listGoodNewsStories, createGoodNewsStory } from '../services/goodNewsStoryService.js'
+import { listPrograms } from '../services/programService.js'
+import { useAuth } from '../context/AuthContext.jsx'
+import { useToast } from '../context/ToastContext.jsx'
 import { downloadCsv } from '../utils/exportCsv.js'
 
 const GOAL_STATUS_TONE = {
@@ -48,6 +52,7 @@ const REPORT_TABS = [
   { key: 'program-performance', label: 'Program Performance', icon: BarChart3, tone: 'red' },
   { key: 'camps', label: 'Overnight Camps', icon: Tent, tone: 'cyan' },
   { key: 'group-notes', label: 'Group Note Report', icon: StickyNote, tone: 'violet' },
+  { key: 'good-news', label: 'Good News Stories', icon: Sparkles, tone: 'lime' },
 ]
 
 function formatPercent(numerator, denominator) {
@@ -215,6 +220,16 @@ function groupNotesToRows(sessions) {
   }))
 }
 
+function goodNewsStoriesToRows(stories) {
+  return stories.map((s) => ({
+    Title: s.title,
+    Story: s.story,
+    Client: clientName(s.client),
+    Program: s.program?.name ?? '',
+    Date: s.story_date,
+  }))
+}
+
 function ExportButton({ rows, filename }) {
   return (
     <Button
@@ -251,7 +266,13 @@ function BreakdownCard({ title, entries }) {
   )
 }
 
+const todayISO = () => new Date().toISOString().slice(0, 10)
+
+const emptyGoodNewsForm = { title: '', story: '', client_id: '', program_id: '', story_date: todayISO() }
+
 export default function Reports() {
+  const { user } = useAuth()
+  const toast = useToast()
   const [activeTab, setActiveTab] = useState(REPORT_TABS[0].key)
   const [loading, setLoading] = useState(true)
   const [notesCount, setNotesCount] = useState(0)
@@ -281,6 +302,27 @@ export default function Reports() {
     outcomes: [],
   })
   const [groupNoteSessions, setGroupNoteSessions] = useState([])
+  const [goodNewsStories, setGoodNewsStories] = useState([])
+  const [clientsForForm, setClientsForForm] = useState([])
+  const [programsForForm, setProgramsForForm] = useState([])
+  const [showGoodNewsForm, setShowGoodNewsForm] = useState(false)
+  const [goodNewsForm, setGoodNewsForm] = useState(emptyGoodNewsForm)
+  const [submittingGoodNews, setSubmittingGoodNews] = useState(false)
+
+  const refetchGoodNewsStories = () => {
+    listGoodNewsStories()
+      .then(setGoodNewsStories)
+      .catch(() => {})
+  }
+
+  useEffect(() => {
+    listClients()
+      .then(setClientsForForm)
+      .catch(() => setClientsForForm([]))
+    listPrograms()
+      .then(setProgramsForForm)
+      .catch(() => setProgramsForForm([]))
+  }, [])
 
   useEffect(() => {
     Promise.all([
@@ -303,6 +345,7 @@ export default function Reports() {
       getProgramPerformance(),
       getCampReport(),
       listGroupNoteReport(),
+      listGoodNewsStories(),
     ])
       .then(
         ([
@@ -325,6 +368,7 @@ export default function Reports() {
           programPerformanceResult,
           campReportResult,
           groupNoteSessionsResult,
+          goodNewsStoriesResult,
         ]) => {
           setNotesCount(nCount)
           setGoalsCount(gCount)
@@ -345,6 +389,7 @@ export default function Reports() {
           setProgramPerformance(programPerformanceResult)
           setCampReport(campReportResult)
           setGroupNoteSessions(groupNoteSessionsResult)
+          setGoodNewsStories(goodNewsStoriesResult)
         },
       )
       .finally(() => setLoading(false))
@@ -365,6 +410,7 @@ export default function Reports() {
     'program-performance': { label: 'Programs Delivered', value: programPerformance.filter((p) => p.sessionCount > 0).length },
     camps: { label: 'Overnight Camps Run', value: campReport.totalCamps },
     'group-notes': { label: 'Group Notes Written', value: groupNoteSessions.length },
+    'good-news': { label: 'Good News Stories', value: goodNewsStories.length },
   }
 
   const activeCount = clientsForReports.filter((c) => c.status === 'active' && !c.archived_at).length
@@ -418,6 +464,29 @@ export default function Reports() {
   const avgParticipantsPerGroupNote = groupNoteSessions.length
     ? (totalGroupNoteParticipants / groupNoteSessions.length).toFixed(1)
     : '—'
+
+  const handleAddGoodNewsStory = async (e) => {
+    e.preventDefault()
+    setSubmittingGoodNews(true)
+    try {
+      await createGoodNewsStory({
+        title: goodNewsForm.title,
+        story: goodNewsForm.story,
+        client_id: goodNewsForm.client_id || null,
+        program_id: goodNewsForm.program_id || null,
+        story_date: goodNewsForm.story_date,
+        created_by: user?.id,
+      })
+      toast.success('Good news story saved.')
+      setGoodNewsForm(emptyGoodNewsForm)
+      setShowGoodNewsForm(false)
+      refetchGoodNewsStories()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setSubmittingGoodNews(false)
+    }
+  }
 
   return (
     <>
@@ -1032,6 +1101,144 @@ export default function Reports() {
                         </div>
                       )
                     })}
+                  </div>
+                )}
+              </Card>
+            </>
+          ) : activeTab === 'good-news' ? (
+            <>
+              <div className="section-head">
+                <div>
+                  <div className="section-title">Good News Stories</div>
+                  <div className="section-subtitle">
+                    {loading ? 'Loading...' : `${goodNewsStories.length} ${goodNewsStories.length === 1 ? 'story' : 'stories'}`}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <ExportButton rows={goodNewsStoriesToRows(goodNewsStories)} filename="good-news-stories.csv" />
+                  <Button onClick={() => setShowGoodNewsForm((v) => !v)}>
+                    <Plus strokeWidth={2} />
+                    Add Story
+                  </Button>
+                </div>
+              </div>
+
+              {showGoodNewsForm && (
+                <Card style={{ marginBottom: 18 }}>
+                  <form onSubmit={handleAddGoodNewsStory}>
+                    <div className="form-grid">
+                      <div>
+                        <label className="form-label" htmlFor="gn-title">
+                          Title
+                        </label>
+                        <input
+                          id="gn-title"
+                          className="input"
+                          value={goodNewsForm.title}
+                          onChange={(e) => setGoodNewsForm((f) => ({ ...f, title: e.target.value }))}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="form-label" htmlFor="gn-date">
+                          Date
+                        </label>
+                        <input
+                          id="gn-date"
+                          type="date"
+                          className="input"
+                          value={goodNewsForm.story_date}
+                          onChange={(e) => setGoodNewsForm((f) => ({ ...f, story_date: e.target.value }))}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="form-label" htmlFor="gn-client">
+                          Client (optional)
+                        </label>
+                        <select
+                          id="gn-client"
+                          className="input"
+                          value={goodNewsForm.client_id}
+                          onChange={(e) => setGoodNewsForm((f) => ({ ...f, client_id: e.target.value }))}
+                        >
+                          <option value="">None</option>
+                          {clientsForForm.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {[c.first_name, c.last_name].filter(Boolean).join(' ')}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="form-label" htmlFor="gn-program">
+                          Program (optional)
+                        </label>
+                        <select
+                          id="gn-program"
+                          className="input"
+                          value={goodNewsForm.program_id}
+                          onChange={(e) => setGoodNewsForm((f) => ({ ...f, program_id: e.target.value }))}
+                        >
+                          <option value="">None</option>
+                          {programsForForm.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div style={{ marginTop: 14 }}>
+                      <label className="form-label" htmlFor="gn-story">
+                        Story
+                      </label>
+                      <textarea
+                        id="gn-story"
+                        className="input"
+                        rows={4}
+                        placeholder="What happened, and why it's worth sharing..."
+                        value={goodNewsForm.story}
+                        onChange={(e) => setGoodNewsForm((f) => ({ ...f, story: e.target.value }))}
+                        required
+                      />
+                    </div>
+                    <div className="form-actions">
+                      <Button type="button" variant="secondary" onClick={() => setShowGoodNewsForm(false)}>
+                        Cancel
+                      </Button>
+                      <Button type="submit" disabled={submittingGoodNews}>
+                        {submittingGoodNews ? 'Saving...' : 'Save Story'}
+                      </Button>
+                    </div>
+                  </form>
+                </Card>
+              )}
+
+              <Card style={!loading && goodNewsStories.length === 0 ? undefined : { padding: 0 }}>
+                {loading ? (
+                  <EmptyState icon={Sparkles} title="Loading..." text="Fetching good news stories." />
+                ) : goodNewsStories.length === 0 ? (
+                  <EmptyState
+                    icon={Sparkles}
+                    title="No good news stories yet"
+                    text="Write up a short success story worth sharing in a newsletter or funding report."
+                  />
+                ) : (
+                  <div className="note-list">
+                    {goodNewsStories.map((s) => (
+                      <div className="note-item" key={s.id}>
+                        <div className="note-item-meta">
+                          <span>
+                            {s.title}
+                            {s.client ? ` · ${clientName(s.client)}` : ''}
+                            {s.program ? ` · ${s.program.name}` : ''}
+                          </span>
+                          <span>{s.story_date}</span>
+                        </div>
+                        <div className="note-item-text">{s.story}</div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </Card>
