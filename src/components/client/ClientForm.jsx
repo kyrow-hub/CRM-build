@@ -27,8 +27,20 @@ const blankValues = {
   status: 'active',
 }
 
+function toFormValues(initialValues) {
+  // Only pull the known form fields out of initialValues (which, when editing,
+  // is the full client record from Supabase and includes extra properties
+  // like the joined `assigned_worker` object, id, created_at, etc. that are
+  // not real form fields and must never be sent back in an update payload).
+  const values = { ...blankValues }
+  for (const key of Object.keys(blankValues)) {
+    if (initialValues?.[key] != null) values[key] = initialValues[key]
+  }
+  return values
+}
+
 export default function ClientForm({ initialValues, workers, onSubmit, onCancel, submitLabel = 'Save Client' }) {
-  const [values, setValues] = useState({ ...blankValues, ...initialValues })
+  const [values, setValues] = useState(() => toFormValues(initialValues))
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState(null)
 
