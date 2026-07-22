@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { FileText, Share2, TrendingUp, Award, Activity, PackageCheck, Users, Download, Gauge, BarChart3 } from 'lucide-react'
+import { FileText, Share2, TrendingUp, Award, Activity, PackageCheck, Users, Download, Gauge, BarChart3, Tent } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import Button from '../components/ui/Button.jsx'
 import StatCard from '../components/ui/StatCard.jsx'
@@ -13,6 +13,7 @@ import { countCaseActivities, listAllCaseActivities } from '../services/caseActi
 import { countOutcomesByCategory, listAllOutcomes } from '../services/outcomeService.js'
 import { getEngagedClientCount, getProgramHoursStats, getAttendanceStats, getGoalStatusCounts } from '../services/kpiService.js'
 import { getProgramPerformance } from '../services/programPerformanceService.js'
+import { getCampReport } from '../services/campReportService.js'
 import { downloadCsv } from '../utils/exportCsv.js'
 
 const GOAL_STATUS_TONE = {
@@ -44,6 +45,7 @@ const REPORT_TABS = [
   { key: 'demographics', label: 'Demographics', icon: Users, tone: 'yellow' },
   { key: 'kpi', label: 'KPI Report', icon: Gauge, tone: 'indigo' },
   { key: 'program-performance', label: 'Program Performance', icon: BarChart3, tone: 'red' },
+  { key: 'camps', label: 'Overnight Camps', icon: Tent, tone: 'cyan' },
 ]
 
 function formatPercent(numerator, denominator) {
@@ -170,6 +172,34 @@ function programPerformanceToRows(programs) {
   }))
 }
 
+function campSessionsToRows(sessions) {
+  return sessions.map((s) => ({
+    Program: s.programName,
+    Date: s.sessionDate,
+    Location: s.location || '',
+    Participants: s.participantCount,
+    'Group Note': s.groupNote || '',
+  }))
+}
+
+function campNotesToRows(notes) {
+  return notes.map((n) => ({
+    Client: clientName(n.client),
+    Note: n.content,
+    Date: n.note_date,
+    Type: n.is_group_note ? 'Group Note' : 'Individual Note',
+  }))
+}
+
+function campOutcomesToRows(outcomes) {
+  return outcomes.map((o) => ({
+    Client: clientName(o.client),
+    Outcome: o.outcome_type,
+    Date: o.outcome_date,
+    Notes: o.notes || '',
+  }))
+}
+
 function ExportButton({ rows, filename }) {
   return (
     <Button
@@ -226,6 +256,15 @@ export default function Reports() {
   const [attendanceStats, setAttendanceStats] = useState({ statusCounts: {}, total: 0, distinctClients: 0 })
   const [goalStatusCounts, setGoalStatusCounts] = useState({})
   const [programPerformance, setProgramPerformance] = useState([])
+  const [campReport, setCampReport] = useState({
+    sessions: [],
+    totalCamps: 0,
+    totalParticipants: 0,
+    totalAttendanceRecords: 0,
+    repeatCampers: [],
+    notes: [],
+    outcomes: [],
+  })
 
   useEffect(() => {
     Promise.all([
@@ -246,6 +285,7 @@ export default function Reports() {
       getAttendanceStats(),
       getGoalStatusCounts(),
       getProgramPerformance(),
+      getCampReport(),
     ])
       .then(
         ([
@@ -266,6 +306,7 @@ export default function Reports() {
           attendanceStatsResult,
           goalStatuses,
           programPerformanceResult,
+          campReportResult,
         ]) => {
           setNotesCount(nCount)
           setGoalsCount(gCount)
@@ -284,6 +325,7 @@ export default function Reports() {
           setAttendanceStats(attendanceStatsResult)
           setGoalStatusCounts(goalStatuses)
           setProgramPerformance(programPerformanceResult)
+          setCampReport(campReportResult)
         },
       )
       .finally(() => setLoading(false))
@@ -302,6 +344,7 @@ export default function Reports() {
     demographics: { label: 'Clients with Details Captured', value: detailsCount },
     kpi: { label: 'Young People Supported', value: engagedClientCount },
     'program-performance': { label: 'Programs Delivered', value: programPerformance.filter((p) => p.sessionCount > 0).length },
+    camps: { label: 'Overnight Camps Run', value: campReport.totalCamps },
   }
 
   const activeCount = clientsForReports.filter((c) => c.status === 'active' && !c.archived_at).length
@@ -348,6 +391,8 @@ export default function Reports() {
   const totalProgramHours = programPerformance.reduce((sum, p) => sum + p.hours, 0)
   const totalProgramAttendance = programPerformance.reduce((sum, p) => sum + p.totalAttendance, 0)
   const overallAvgAttendance = totalGroupsRun ? totalProgramAttendance / totalGroupsRun : 0
+
+  const repeatCamperEntries = campReport.repeatCampers.map((c) => [c.name, c.campsAttended])
 
   return (
     <>
@@ -755,6 +800,144 @@ export default function Reports() {
                         <span className="data-cell-muted">
                           {p.attendanceRate == null ? '—' : `${Math.round(p.attendanceRate * 100)}%`}
                         </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </>
+          ) : activeTab === 'camps' ? (
+            <>
+              <ExportButton rows={campSessionsToRows(campReport.sessions)} filename="overnight-camps-report.csv" />
+              <div className="details-grid" style={{ marginBottom: 18 }}>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Overnight Camps Run
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : campReport.totalCamps}
+                  </div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Camp Participants
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : campReport.totalParticipants}
+                  </div>
+                  <div className="data-cell-muted">Distinct young people across all camps</div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Camp Attendance Records
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : campReport.totalAttendanceRecords}
+                  </div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Repeat Campers
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : campReport.repeatCampers.length}
+                  </div>
+                  <div className="data-cell-muted">Attended more than one camp</div>
+                </Card>
+              </div>
+
+              <div className="section-title" style={{ marginBottom: 12 }}>
+                Camps
+              </div>
+              <Card style={!loading && campReport.sessions.length === 0 ? undefined : { padding: 0, marginBottom: 24 }}>
+                {loading ? (
+                  <EmptyState icon={Tent} title="Loading..." text="Fetching overnight camps." />
+                ) : campReport.sessions.length === 0 ? (
+                  <EmptyState
+                    icon={Tent}
+                    title="No overnight camps recorded"
+                    text="Mark a group session as an overnight camp in Attendance Register to see it here."
+                  />
+                ) : (
+                  <div className="data-table">
+                    <div className="data-row camp-session-row data-row--head">
+                      <span>Program</span>
+                      <span>Date</span>
+                      <span>Location</span>
+                      <span>Participants</span>
+                    </div>
+                    {campReport.sessions.map((s) => (
+                      <div className="data-row camp-session-row" key={s.id}>
+                        <span>{s.programName}</span>
+                        <span className="data-cell-muted">{s.sessionDate}</span>
+                        <span className="data-cell-muted">{s.location || '—'}</span>
+                        <span className="data-cell-muted">{s.participantCount}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+
+              {repeatCamperEntries.length > 0 && (
+                <div className="details-grid" style={{ marginBottom: 24 }}>
+                  <BreakdownCard title="Which Participants Attended Multiple Camps" entries={repeatCamperEntries} />
+                </div>
+              )}
+
+              <div className="section-head">
+                <div>
+                  <div className="section-title">Individual Camp Notes</div>
+                  <div className="section-subtitle">Notes tied to a camp session, including group notes copied to each attendee</div>
+                </div>
+                <ExportButton rows={campNotesToRows(campReport.notes)} filename="camp-notes-report.csv" />
+              </div>
+              <Card style={!loading && campReport.notes.length === 0 ? undefined : { padding: 0, marginBottom: 24 }}>
+                {campReport.notes.length === 0 ? (
+                  <EmptyState icon={FileText} title="No camp notes yet" text="Notes logged for camp sessions will appear here." />
+                ) : (
+                  <div className="data-table">
+                    <div className="data-row notes-row data-row--head">
+                      <span>Client</span>
+                      <span>Note</span>
+                      <span>Date</span>
+                      <span>Type</span>
+                    </div>
+                    {campReport.notes.map((n) => (
+                      <div className="data-row notes-row" key={n.id}>
+                        <span>{clientName(n.client)}</span>
+                        <span className="data-cell-muted">{n.content}</span>
+                        <span className="data-cell-muted">{n.note_date}</span>
+                        <span className="data-cell-muted">{n.is_group_note ? 'Group Note' : 'Individual Note'}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+
+              <div className="section-head">
+                <div>
+                  <div className="section-title">Camp Outcomes</div>
+                  <div className="section-subtitle">Outcomes logged under the Camp category on a client's Outcomes tab</div>
+                </div>
+                <ExportButton rows={campOutcomesToRows(campReport.outcomes)} filename="camp-outcomes-report.csv" />
+              </div>
+              <Card style={!loading && campReport.outcomes.length === 0 ? undefined : { padding: 0 }}>
+                {campReport.outcomes.length === 0 ? (
+                  <EmptyState icon={Award} title="No camp outcomes yet" text="Outcomes logged with the Camp category will appear here." />
+                ) : (
+                  <div className="data-table">
+                    <div className="data-row goals-row data-row--head">
+                      <span>Outcome</span>
+                      <span className="goals-col-date">Date</span>
+                      <span>Client</span>
+                      <span className="goals-col-notes">Notes</span>
+                    </div>
+                    {campReport.outcomes.map((o) => (
+                      <div className="data-row goals-row" key={o.id}>
+                        <span>{o.outcome_type}</span>
+                        <span className="data-cell-muted goals-col-date">{o.outcome_date}</span>
+                        <span className="data-cell-muted">{clientName(o.client)}</span>
+                        <span className="data-cell-muted goals-col-notes">{o.notes || '—'}</span>
                       </div>
                     ))}
                   </div>
