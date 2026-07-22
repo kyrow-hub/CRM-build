@@ -91,7 +91,7 @@ export async function listClientsForReports() {
   const { data, error } = await supabase
     .from('clients')
     .select(
-      'id, status, date_of_birth, gender, indigenous_status, risk_level, cultural_background, postcode, suburb, date_opened, date_closed, archived_at',
+      'id, status, date_of_birth, gender, indigenous_status, risk_level, cultural_background, postcode, suburb, date_opened, date_closed, exit_reason, archived_at',
     )
   if (error) throw error
   return data

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { FileText, Share2, TrendingUp, Award, Activity, PackageCheck, Users, Download } from 'lucide-react'
+import { FileText, Share2, TrendingUp, Award, Activity, PackageCheck, Users, Download, Gauge } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import Button from '../components/ui/Button.jsx'
 import StatCard from '../components/ui/StatCard.jsx'
@@ -11,6 +11,7 @@ import { countClientsWithDetails, listClientsForReports } from '../services/clie
 import { countReferralsByStatus, listReferrals } from '../services/referralService.js'
 import { countCaseActivities, listAllCaseActivities } from '../services/caseActivityService.js'
 import { countOutcomesByCategory, listAllOutcomes } from '../services/outcomeService.js'
+import { getEngagedClientCount, getProgramHoursStats, getAttendanceStats, getGoalStatusCounts } from '../services/kpiService.js'
 import { downloadCsv } from '../utils/exportCsv.js'
 
 const GOAL_STATUS_TONE = {
@@ -40,7 +41,13 @@ const REPORT_TABS = [
   { key: 'outcomes', label: 'Outcomes', icon: Award, tone: 'pink' },
   { key: 'service-delivery', label: 'Service Delivery', icon: PackageCheck, tone: 'orange' },
   { key: 'demographics', label: 'Demographics', icon: Users, tone: 'yellow' },
+  { key: 'kpi', label: 'KPI Report', icon: Gauge, tone: 'indigo' },
 ]
+
+function formatPercent(numerator, denominator) {
+  if (!denominator) return '—'
+  return `${Math.round((numerator / denominator) * 100)}%`
+}
 
 function clientName(client) {
   return client ? [client.first_name, client.last_name].filter(Boolean).join(' ') : '—'
@@ -134,6 +141,19 @@ function demographicsToRows(clients) {
   }))
 }
 
+function kpiToRows(kpi) {
+  return [
+    { Metric: 'Young People Supported (all-time)', Value: kpi.engagedClientCount },
+    { Metric: 'Program Hours Delivered', Value: kpi.programHours.totalHours.toFixed(1) },
+    { Metric: 'Average Hours per Participant', Value: kpi.avgHoursPerParticipant },
+    { Metric: 'Referrals Received', Value: kpi.referralsCount },
+    { Metric: 'Referral Acceptance Rate', Value: kpi.referralAcceptanceRate },
+    { Metric: 'Goal Completion Rate', Value: kpi.goalCompletionRate },
+    { Metric: 'Attendance Rate', Value: kpi.attendanceRate },
+    { Metric: 'Outcomes Achieved', Value: kpi.outcomesCount },
+  ]
+}
+
 function ExportButton({ rows, filename }) {
   return (
     <Button
@@ -185,6 +205,10 @@ export default function Reports() {
   const [outcomes, setOutcomes] = useState([])
   const [referrals, setReferrals] = useState([])
   const [clientsForReports, setClientsForReports] = useState([])
+  const [engagedClientCount, setEngagedClientCount] = useState(0)
+  const [programHours, setProgramHours] = useState({ totalHours: 0, sessionsWithDuration: 0, totalSessions: 0 })
+  const [attendanceStats, setAttendanceStats] = useState({ statusCounts: {}, total: 0, distinctClients: 0 })
+  const [goalStatusCounts, setGoalStatusCounts] = useState({})
 
   useEffect(() => {
     Promise.all([
@@ -200,6 +224,10 @@ export default function Reports() {
       listAllOutcomes(),
       listReferrals(),
       listClientsForReports(),
+      getEngagedClientCount(),
+      getProgramHoursStats(),
+      getAttendanceStats(),
+      getGoalStatusCounts(),
     ])
       .then(
         ([
@@ -215,6 +243,10 @@ export default function Reports() {
           allOutcomes,
           allReferrals,
           allClients,
+          engagedCount,
+          hoursStats,
+          attendanceStatsResult,
+          goalStatuses,
         ]) => {
           setNotesCount(nCount)
           setGoalsCount(gCount)
@@ -228,6 +260,10 @@ export default function Reports() {
           setOutcomes(allOutcomes)
           setReferrals(allReferrals)
           setClientsForReports(allClients)
+          setEngagedClientCount(engagedCount)
+          setProgramHours(hoursStats)
+          setAttendanceStats(attendanceStatsResult)
+          setGoalStatusCounts(goalStatuses)
         },
       )
       .finally(() => setLoading(false))
@@ -244,6 +280,7 @@ export default function Reports() {
     outcomes: { label: 'Outcomes Recorded', value: outcomesCount },
     'service-delivery': { label: 'Services Delivered', value: 0 },
     demographics: { label: 'Clients with Details Captured', value: detailsCount },
+    kpi: { label: 'Young People Supported', value: engagedClientCount },
   }
 
   const activeCount = clientsForReports.filter((c) => c.status === 'active' && !c.archived_at).length
@@ -254,6 +291,36 @@ export default function Reports() {
   const riskBreakdown = countBy(clientsForReports, (c) => c.risk_level)
   const suburbBreakdown = countBy(clientsForReports, (c) => c.suburb).slice(0, 8)
   const culturalRecordedCount = clientsForReports.filter((c) => c.cultural_background).length
+
+  const closedClients = clientsForReports.filter((c) => c.status !== 'active' || c.archived_at)
+  const closureReasonBreakdown = countBy(closedClients, (c) => c.exit_reason)
+
+  const attendedStatuses = ['Present', 'Late', 'Left Early']
+  const attendedCount = attendedStatuses.reduce((sum, s) => sum + (attendanceStats.statusCounts[s] ?? 0), 0)
+  const excusedCount = attendanceStats.statusCounts.Excused ?? 0
+  const attendanceRateDenominator = attendanceStats.total - excusedCount
+  const attendanceRate = formatPercent(attendedCount, attendanceRateDenominator)
+
+  const goalsAchieved = goalStatusCounts.Achieved ?? 0
+  const totalGoalsForRate = Object.values(goalStatusCounts).reduce((sum, n) => sum + n, 0)
+  const goalCompletionRate = formatPercent(goalsAchieved, totalGoalsForRate)
+
+  const referralAcceptanceRate = formatPercent(referralsByStatus.Accepted ?? 0, referralsCount)
+
+  const avgHoursPerParticipant = attendanceStats.distinctClients
+    ? (programHours.totalHours / attendanceStats.distinctClients).toFixed(1)
+    : '—'
+
+  const kpiData = {
+    engagedClientCount,
+    programHours,
+    avgHoursPerParticipant,
+    referralsCount,
+    referralAcceptanceRate,
+    goalCompletionRate,
+    attendanceRate,
+    outcomesCount,
+  }
 
   return (
     <>
@@ -510,6 +577,85 @@ export default function Reports() {
                 <BreakdownCard title="Aboriginal & Torres Strait Islander Status" entries={indigenousBreakdown} />
                 <BreakdownCard title="Risk Level" entries={riskBreakdown} />
                 <BreakdownCard title="Suburb" entries={suburbBreakdown} />
+              </div>
+            </>
+          ) : activeTab === 'kpi' ? (
+            <>
+              <ExportButton rows={kpiToRows(kpiData)} filename="kpi-report.csv" />
+              <div className="details-grid" style={{ marginBottom: 18 }}>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Young People Supported
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : engagedClientCount}
+                  </div>
+                  <div className="data-cell-muted">All-time, at least one recorded touchpoint</div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Program Hours Delivered
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : programHours.totalHours.toFixed(1)}
+                  </div>
+                  <div className="data-cell-muted">
+                    From {programHours.sessionsWithDuration} of {programHours.totalSessions} sessions with times set
+                  </div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Avg. Hours per Participant
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : avgHoursPerParticipant}
+                  </div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Referrals Received
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : referralsCount}
+                  </div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Referral Acceptance Rate
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : referralAcceptanceRate}
+                  </div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Goal Completion Rate
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : goalCompletionRate}
+                  </div>
+                  <div className="data-cell-muted">{goalsAchieved} of {totalGoalsForRate} goals achieved</div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Attendance Rate
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : attendanceRate}
+                  </div>
+                  <div className="data-cell-muted">Present, Late, or Left Early - excludes Excused</div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Outcomes Achieved
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : outcomesCount}
+                  </div>
+                </Card>
+              </div>
+              <div className="details-grid">
+                <BreakdownCard title="Case Closure Reasons" entries={closureReasonBreakdown} />
               </div>
             </>
           ) : (
