@@ -97,6 +97,34 @@ export async function listClientsForReports() {
   return data
 }
 
+export async function updateNextReviewDate(clientId, nextReviewDate) {
+  const { error } = await supabase.from('clients').update({ next_review_date: nextReviewDate }).eq('id', clientId)
+  if (error) throw error
+}
+
+// Active clients with a review due date set, for the "Reviews Due" list on
+// Reports and Dashboard.
+export async function listClientsWithReviewDue() {
+  const { data, error } = await supabase
+    .from('clients')
+    .select('id, first_name, last_name, next_review_date, assigned_worker:profiles!assigned_worker_id(id, first_name, last_name)')
+    .not('next_review_date', 'is', null)
+    .is('archived_at', null)
+    .order('next_review_date', { ascending: true })
+  if (error) throw error
+  return data
+}
+
+export async function countOverdueReviews() {
+  const { count, error } = await supabase
+    .from('clients')
+    .select('id', { count: 'exact', head: true })
+    .lt('next_review_date', new Date().toISOString().slice(0, 10))
+    .is('archived_at', null)
+  if (error) throw error
+  return count ?? 0
+}
+
 export async function listAssignableWorkers() {
   const { data, error } = await supabase
     .from('profiles')

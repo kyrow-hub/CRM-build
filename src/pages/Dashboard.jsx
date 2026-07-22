@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Users, Share2, Calendar, Target, Activity, FileText, Award, Sparkles } from 'lucide-react'
+import { Users, Share2, Calendar, Target, Activity, FileText, Award, Sparkles, CalendarClock } from 'lucide-react'
 import StatCard from '../components/ui/StatCard.jsx'
 import Card from '../components/ui/Card.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
@@ -26,7 +26,7 @@ const ACTIVITY_TONE = {
 export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [stats, setStats] = useState({ activeClients: 0, totalLeads: 0, referralsThisWeek: 0, meetingsThisWeek: 0 })
+  const [stats, setStats] = useState({ activeClients: 0, totalLeads: 0, referralsThisWeek: 0, meetingsThisWeek: 0, reviewsOverdue: 0 })
   const [activity, setActivity] = useState([])
 
   useEffect(() => {
@@ -44,6 +44,13 @@ export default function Dashboard() {
     { label: 'Total Leads', value: stats.totalLeads, meta: 'Across all statuses', icon: Target, tone: 'purple' },
     { label: 'Referrals This Week', value: stats.referralsThisWeek, meta: 'Received since Monday', icon: Share2, tone: 'teal' },
     { label: 'Meetings This Week', value: stats.meetingsThisWeek, meta: 'Scheduled this week', icon: Calendar, tone: 'orange' },
+    {
+      label: 'Reviews Overdue',
+      value: stats.reviewsOverdue,
+      meta: stats.reviewsOverdue > 0 ? 'Needs a review assessment' : 'All caught up',
+      icon: CalendarClock,
+      tone: stats.reviewsOverdue > 0 ? 'red' : 'green',
+    },
   ]
 
   return (

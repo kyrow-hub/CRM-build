@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { FileText, Share2, TrendingUp, Award, Activity, PackageCheck, Users, Download, Gauge, BarChart3, Tent, StickyNote, Sparkles, Plus, ClipboardList, ClipboardCheck, FileSpreadsheet } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { FileText, Share2, TrendingUp, Award, Activity, PackageCheck, Users, Download, Gauge, BarChart3, Tent, StickyNote, Sparkles, Plus, ClipboardList, ClipboardCheck, CalendarClock, FileSpreadsheet } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import Button from '../components/ui/Button.jsx'
 import StatCard from '../components/ui/StatCard.jsx'
@@ -7,7 +8,7 @@ import StatusPill from '../components/ui/StatusPill.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
 import { countClientNotes, listAllClientNotes } from '../services/clientNoteService.js'
 import { countClientGoals, listAllClientGoals } from '../services/clientGoalService.js'
-import { countClientsWithDetails, listClientsForReports, listClients } from '../services/clientService.js'
+import { countClientsWithDetails, listClientsForReports, listClients, listClientsWithReviewDue } from '../services/clientService.js'
 import { countReferralsByStatus, listReferrals } from '../services/referralService.js'
 import { countCaseActivities, listAllCaseActivities } from '../services/caseActivityService.js'
 import { countOutcomesByCategory, listAllOutcomes } from '../services/outcomeService.js'
@@ -372,6 +373,7 @@ export default function Reports() {
     distinctParticipants: 0,
   })
   const [assessments, setAssessments] = useState([])
+  const [reviewsDue, setReviewsDue] = useState([])
 
   const refetchGoodNewsStories = () => {
     listGoodNewsStories()
@@ -413,6 +415,7 @@ export default function Reports() {
       listGoodNewsStories(),
       getGroupAttendanceReport(),
       listAllAssessments(),
+      listClientsWithReviewDue(),
     ])
       .then(
         ([
@@ -438,6 +441,7 @@ export default function Reports() {
           goodNewsStoriesResult,
           groupAttendanceReportResult,
           allAssessments,
+          reviewsDueResult,
         ]) => {
           setNotesCount(nCount)
           setGoalsCount(gCount)
@@ -461,6 +465,7 @@ export default function Reports() {
           setGoodNewsStories(goodNewsStoriesResult)
           setGroupAttendanceReport(groupAttendanceReportResult)
           setAssessments(allAssessments)
+          setReviewsDue(reviewsDueResult)
         },
       )
       .catch((err) => setLoadError(err.message))
@@ -571,6 +576,9 @@ export default function Reports() {
     const avg = scores.length ? (scores.reduce((sum, v) => sum + v, 0) / scores.length).toFixed(1) : null
     return [label, avg ?? '—']
   })
+
+  const overdueReviews = reviewsDue.filter((c) => c.next_review_date < todayISO())
+  const upcomingReviews = reviewsDue.filter((c) => c.next_review_date >= todayISO())
 
   const handleAddGoodNewsStory = async (e) => {
     e.preventDefault()
@@ -1552,7 +1560,51 @@ export default function Reports() {
                   </div>
                   <div className="data-cell-muted">Out of 5, across {assessmentsWithSewb.length} assessments scored</div>
                 </Card>
+                <Card style={overdueReviews.length > 0 ? { borderColor: 'rgba(248, 113, 113, 0.4)' } : undefined}>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Reviews Overdue
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24, color: overdueReviews.length > 0 ? '#f87171' : undefined }}>
+                    {loading ? '—' : overdueReviews.length}
+                  </div>
+                  <div className="data-cell-muted">{upcomingReviews.length} more due later</div>
+                </Card>
               </div>
+
+              <Card style={{ marginBottom: 18 }}>
+                <div className="section-subtitle" style={{ marginBottom: 12, fontWeight: 700, color: 'var(--text)' }}>
+                  Reviews Due (Section 9)
+                </div>
+                {loading ? (
+                  <div className="data-cell-muted">Loading...</div>
+                ) : reviewsDue.length === 0 ? (
+                  <div className="data-cell-muted">No clients currently have a next review date set.</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {reviewsDue.map((c) => {
+                      const name = [c.first_name, c.last_name].filter(Boolean).join(' ')
+                      const overdue = c.next_review_date < todayISO()
+                      const workerName = c.assigned_worker
+                        ? [c.assigned_worker.first_name, c.assigned_worker.last_name].filter(Boolean).join(' ')
+                        : 'Unassigned'
+                      return (
+                        <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
+                          <span>
+                            <Link to={`/clients/${c.id}`} style={{ color: 'var(--text)', fontWeight: 600 }}>
+                              {name}
+                            </Link>
+                            <span className="data-cell-muted"> · {workerName}</span>
+                          </span>
+                          <StatusPill tone={overdue ? 'danger' : 'info'}>
+                            <CalendarClock strokeWidth={2} style={{ width: 11, height: 11, marginRight: 3, verticalAlign: 'text-bottom' }} />
+                            {overdue ? 'Overdue' : 'Due'} {c.next_review_date}
+                          </StatusPill>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </Card>
 
               <div className="details-grid" style={{ marginBottom: 18 }}>
                 <BreakdownCard title="Overall Risk Level" entries={riskLevelBreakdown} />

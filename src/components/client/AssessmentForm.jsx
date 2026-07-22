@@ -16,12 +16,18 @@ import {
 } from '../../data/assessmentOptions.js'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
+const addDaysISO = (days) => {
+  const d = new Date()
+  d.setDate(d.getDate() + days)
+  return d.toISOString().slice(0, 10)
+}
 
 function buildEmptyForm(currentUserId) {
   return {
     assessment_type: 'Intake',
     assessment_date: todayISO(),
     assessor_id: currentUserId || '',
+    next_review_date: addDaysISO(90),
     referral_date: '',
     intake_date: '',
     consent_obtained: false,
@@ -186,6 +192,20 @@ export default function AssessmentForm({ clientId, workers, currentUserId, onSav
               ))}
             </select>
           </div>
+          {!isExit && (
+            <div>
+              <label className="form-label" htmlFor="as-next-review">
+                Next Review Due
+              </label>
+              <input
+                id="as-next-review"
+                type="date"
+                className="input"
+                value={form.next_review_date}
+                onChange={set('next_review_date')}
+              />
+            </div>
+          )}
         </div>
         <label className="checkbox-field">
           <input type="checkbox" checked={form.confidential} onChange={setChecked('confidential')} />

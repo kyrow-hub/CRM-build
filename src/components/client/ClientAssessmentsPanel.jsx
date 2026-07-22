@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, ClipboardCheck, ChevronDown, ChevronUp, X } from 'lucide-react'
+import { Plus, ClipboardCheck, ChevronDown, ChevronUp, X, CalendarClock } from 'lucide-react'
 import Card from '../ui/Card.jsx'
 import Button from '../ui/Button.jsx'
 import EmptyState from '../ui/EmptyState.jsx'
@@ -9,7 +9,7 @@ import { useClientAssessments } from '../../hooks/useClientAssessments.js'
 import { createAssessment, deleteAssessment } from '../../services/assessmentService.js'
 import { useServicePlanItems } from '../../hooks/useServicePlanItems.js'
 import { createServicePlanItem, updateServicePlanItemStatus } from '../../services/servicePlanService.js'
-import { listAssignableWorkers } from '../../services/clientService.js'
+import { listAssignableWorkers, updateNextReviewDate } from '../../services/clientService.js'
 import { SEWB_DOMAINS, RISK_DOMAINS, NEEDS_DOMAINS, SERVICE_TYPES } from '../../data/assessmentOptions.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -303,7 +303,7 @@ function ServicePlanSection({ clientId, workers }) {
   )
 }
 
-export default function ClientAssessmentsPanel({ clientId, clientName }) {
+export default function ClientAssessmentsPanel({ clientId, clientName, nextReviewDate, onReviewDateChange }) {
   const { user, profile } = useAuth()
   const toast = useToast()
   const { assessments, loading, error, refetch } = useClientAssessments(clientId)
@@ -312,6 +312,7 @@ export default function ClientAssessmentsPanel({ clientId, clientName }) {
   const [submitting, setSubmitting] = useState(false)
 
   const canDelete = profile?.role === 'administrator' || profile?.role === 'manager'
+  const reviewOverdue = nextReviewDate && nextReviewDate < todayISO()
 
   useEffect(() => {
     listAssignableWorkers()
@@ -319,10 +320,13 @@ export default function ClientAssessmentsPanel({ clientId, clientName }) {
       .catch(() => setWorkers([]))
   }, [])
 
-  const handleSave = async (payload) => {
+  const handleSave = async ({ next_review_date, ...assessmentPayload }) => {
     setSubmitting(true)
     try {
-      await createAssessment({ ...payload, created_by: user?.id })
+      await createAssessment({ ...assessmentPayload, created_by: user?.id })
+      const newReviewDate = assessmentPayload.assessment_type === 'Exit' ? null : next_review_date || null
+      await updateNextReviewDate(clientId, newReviewDate)
+      onReviewDateChange?.(newReviewDate)
       toast.success('Assessment saved.')
       setShowForm(false)
       refetch()
@@ -347,6 +351,15 @@ export default function ClientAssessmentsPanel({ clientId, clientName }) {
           New Assessment
         </Button>
       </div>
+
+      {nextReviewDate && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
+          <StatusPill tone={reviewOverdue ? 'danger' : 'info'}>
+            <CalendarClock strokeWidth={2} style={{ width: 12, height: 12, marginRight: 4, verticalAlign: 'text-bottom' }} />
+            {reviewOverdue ? 'Review overdue' : 'Next review due'}: {nextReviewDate}
+          </StatusPill>
+        </div>
+      )}
 
       {showForm && (
         <AssessmentForm

@@ -16,7 +16,7 @@ gated by Supabase Auth plus role-based RLS policies (see `supabase/migrations/`)
 | Page | Backing | Notes |
 |---|---|---|
 | Login | Supabase Auth | Email/password sign in; unauthenticated users are redirected here by `ProtectedRoute`. |
-| Dashboard | `clients`, `leads`, `referrals`, `meetings`, `client_notes`, `case_activities`, `client_outcomes`, `good_news_stories` | Active Clients / Total Leads / Referrals This Week / Meetings This Week stat cards, plus a real recent-activity feed aggregated across several tables. |
+| Dashboard | `clients`, `leads`, `referrals`, `meetings`, `client_notes`, `case_activities`, `client_outcomes`, `good_news_stories` | Active Clients / Total Leads / Referrals This Week / Meetings This Week / Reviews Overdue stat cards, plus a real recent-activity feed aggregated across several tables. |
 | Leads | `leads` | Full CRUD, search, filtering. |
 | Clients (list) | `clients` | Full CRUD, search, status filtering, archive. |
 | Client Detail | `clients` + tab-specific tables (below) | Header/details editable; each tab is its own panel. |
@@ -40,7 +40,7 @@ gated by Supabase Auth plus role-based RLS policies (see `supabase/migrations/`)
 | Outcomes | `client_outcomes` | Confidentiality-aware. |
 | Staff Register | `client_staff_assignments` | Role-on-case assignments (Primary Case Worker, Program Worker, etc.), unique per client/worker/role. |
 | Programs | derived from `attendance` + `program_sessions` | Read-only summary of program involvement (sessions attended, first/last date); no separate table. |
-| Assessments | `client_assessments`, `client_service_plan_items` | Intake/Review/Exit assessments covering presenting issues, risk, needs, protective factors, the Bori Muy SEWB scale, and exit outcomes (SRS-style reporting fields), plus a service plan register. Confidentiality-aware. Goals from Section 6 of the assessment are managed on the Goals & Outcomes tab (now with Actions and Responsible Person). |
+| Assessments | `client_assessments`, `client_service_plan_items`, `clients.next_review_date` | Intake/Review/Exit assessments covering presenting issues, risk, needs, protective factors, the Bori Muy SEWB scale, and exit outcomes (SRS-style reporting fields), plus a service plan register. Confidentiality-aware. Saving an Intake or Review assessment sets a "Next Review Due" date on the client (default 90 days out, editable); saving an Exit assessment clears it. Overdue reviews surface on the client profile, Reports, and the Dashboard. Goals from Section 6 of the assessment are managed on the Goals & Outcomes tab (now with Actions and Responsible Person). |
 | Follow Ups | `client_follow_ups` | Pending/Completed/Cancelled workflow with overdue detection. |
 | Documents | `client_documents` + `client-documents` Storage bucket | Upload/download/delete with confidentiality-aware RLS mirrored at the storage layer. |
 
@@ -49,10 +49,11 @@ gated by Supabase Auth plus role-based RLS policies (see `supabase/migrations/`)
 Case Notes, Activities, Referrals, Goals & Outcomes, Outcomes, Service Delivery (Case
 Notes grouped by category), Demographics, KPI Report, Program Performance, Overnight Camp
 Report, Group Note Report, Good News Stories, Group Attendance, Assessments (assessment
-type/risk/progress/presenting issues/protective factors breakdowns plus SEWB domain
-averages), and Full Service Report (one combined multi-sheet spreadsheet across all of the
-above). All are client-side aggregations over existing tables except Full Service Report,
-which reuses the already-fetched data from the other tabs.
+type/risk/progress/presenting issues/protective factors breakdowns, SEWB domain averages,
+and a Reviews Due list of clients with an overdue or upcoming review), and Full Service
+Report (one combined multi-sheet spreadsheet across all of the above). All are
+client-side aggregations over existing tables except Full Service Report, which reuses
+the already-fetched data from the other tabs.
 
 ## Security posture
 

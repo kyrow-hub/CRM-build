@@ -261,7 +261,13 @@ export default function ClientDetail() {
           ) : activeTab === 'staff-register' ? (
             <ClientStaffRegisterPanel key={client.id} clientId={client.id} clientName={fullName} />
           ) : activeTab === 'assessments' ? (
-            <ClientAssessmentsPanel key={client.id} clientId={client.id} clientName={fullName} />
+            <ClientAssessmentsPanel
+              key={client.id}
+              clientId={client.id}
+              clientName={fullName}
+              nextReviewDate={client.next_review_date}
+              onReviewDateChange={(date) => setClient((c) => ({ ...c, next_review_date: date }))}
+            />
           ) : activeTab === 'follow-ups' ? (
             <ClientFollowUpsPanel key={client.id} clientId={client.id} clientName={fullName} />
           ) : (
