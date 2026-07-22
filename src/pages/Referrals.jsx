@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Search, Share2, Plus, Check, X, Link2 } from 'lucide-react'
+import { Search, Share2, Plus, Check, X, Link2, Folder } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import Button from '../components/ui/Button.jsx'
 import StatusPill from '../components/ui/StatusPill.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
+import ReferralDocumentsPanel from '../components/referral/ReferralDocumentsPanel.jsx'
 import { useReferrals } from '../hooks/useReferrals.js'
 import { createReferral, updateReferral } from '../services/referralService.js'
+import { syncReferralDocumentsClient } from '../services/documentService.js'
 import { listClients } from '../services/clientService.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
@@ -44,6 +46,7 @@ function ReferralRow({ referral, clients, onUpdated }) {
         accepted_date: todayISO(),
         client_id: clientId || null,
       })
+      await syncReferralDocumentsClient(referral.id, clientId || null)
       toast.success('Referral accepted.')
       setMode(null)
       onUpdated()
@@ -77,7 +80,8 @@ function ReferralRow({ referral, clients, onUpdated }) {
     setSubmitting(true)
     try {
       await updateReferral(referral.id, { client_id: clientId || null })
-      toast.success(clientId ? 'Referral linked to client.' : 'Referral unlinked.')
+      await syncReferralDocumentsClient(referral.id, clientId || null)
+      toast.success(clientId ? 'Referral linked to client. Any attached documents now appear on their Documents tab.' : 'Referral unlinked.')
       setMode(null)
       onUpdated()
     } catch (err) {
@@ -120,11 +124,20 @@ function ReferralRow({ referral, clients, onUpdated }) {
             <Link2 strokeWidth={2} />
             {linkedName ? 'Change Client' : 'Link Client'}
           </Button>
+          <Button type="button" variant="secondary" onClick={() => setMode(mode === 'documents' ? null : 'documents')}>
+            <Folder strokeWidth={2} />
+            Documents
+          </Button>
         </div>
       </div>
       <div className="data-cell-muted" style={{ marginTop: -4 }}>
         {linkedName ? `Linked to ${linkedName}` : 'Not linked to a client'}
       </div>
+      {mode === 'documents' && (
+        <div style={{ marginTop: 4 }}>
+          <ReferralDocumentsPanel referralId={referral.id} clientId={referral.client_id} />
+        </div>
+      )}
       {mode === 'link' && (
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <select className="input" style={{ maxWidth: 320 }} value={clientId} onChange={(e) => setClientId(e.target.value)}>

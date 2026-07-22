@@ -18,6 +18,7 @@ gated by Supabase Auth plus role-based RLS policies (see `supabase/migrations/`)
 | Login | Supabase Auth | Email/password sign in; unauthenticated users are redirected here by `ProtectedRoute`. |
 | Dashboard | `clients`, `leads`, `referrals`, `meetings`, `client_notes`, `case_activities`, `client_outcomes`, `good_news_stories` | Active Clients / Total Leads / Referrals This Week / Meetings This Week / Reviews Overdue stat cards, plus a real recent-activity feed aggregated across several tables. |
 | Leads | `leads` | Full CRUD, search, filtering. |
+| Referrals | `referrals`, `client_documents` | Accept/decline, link/re-link to an existing client at any time, and attach documents before a client record even exists - linking a referral automatically moves its documents onto that client's Documents tab. |
 | Clients (list) | `clients` | Full CRUD, search, status filtering, archive. |
 | Client Detail | `clients` + tab-specific tables (below) | Header/details editable; each tab is its own panel. |
 | Partners / Partner Detail | `partners` | Full CRUD, CSV export. |
@@ -42,7 +43,7 @@ gated by Supabase Auth plus role-based RLS policies (see `supabase/migrations/`)
 | Programs | derived from `attendance` + `program_sessions` | Read-only summary of program involvement (sessions attended, first/last date); no separate table. |
 | Assessments | `client_assessments`, `client_service_plan_items`, `clients.next_review_date` | Intake/Review/Exit assessments covering presenting issues, risk, needs, protective factors, the Bori Muy SEWB scale, and exit outcomes (SRS-style reporting fields), plus a service plan register. Confidentiality-aware. Saving an Intake or Review assessment sets a "Next Review Due" date on the client (default 90 days out, editable); saving an Exit assessment clears it. Overdue reviews surface on the client profile, Reports, and the Dashboard. Goals from Section 6 of the assessment are managed on the Goals & Outcomes tab (now with Actions and Responsible Person). |
 | Follow Ups | `client_follow_ups` | Pending/Completed/Cancelled workflow with overdue detection. |
-| Documents | `client_documents` + `client-documents` Storage bucket | Upload/download/delete with confidentiality-aware RLS mirrored at the storage layer. |
+| Documents | `client_documents` + `client-documents` Storage bucket | Upload/download/delete with confidentiality-aware RLS mirrored at the storage layer. Includes documents uploaded from the Referrals page before this client's record existed. |
 
 ## Reports tabs
 

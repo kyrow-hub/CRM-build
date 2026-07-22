@@ -13,10 +13,12 @@ export async function listClientDocuments(clientId) {
   return data
 }
 
-export async function uploadClientDocument({ clientId, file, confidential, uploadedBy }) {
+export async function uploadDocument({ clientId = null, referralId = null, file, confidential, uploadedBy }) {
+  if (!clientId && !referralId) throw new Error('A client or referral is required.')
   const documentId = crypto.randomUUID()
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-  const filePath = `${clientId}/${documentId}-${safeName}`
+  const folder = clientId || `referral-${referralId}`
+  const filePath = `${folder}/${documentId}-${safeName}`
 
   const { error: uploadError } = await supabase.storage.from(BUCKET).upload(filePath, file, {
     contentType: file.type,
@@ -29,6 +31,7 @@ export async function uploadClientDocument({ clientId, file, confidential, uploa
     .insert({
       id: documentId,
       client_id: clientId,
+      referral_id: referralId,
       file_name: file.name,
       file_path: filePath,
       file_size: file.size,
@@ -46,6 +49,28 @@ export async function uploadClientDocument({ clientId, file, confidential, uploa
     throw error
   }
   return data
+}
+
+export async function uploadClientDocument({ clientId, file, confidential, uploadedBy }) {
+  return uploadDocument({ clientId, file, confidential, uploadedBy })
+}
+
+export async function listReferralDocuments(referralId) {
+  const { data, error } = await supabase
+    .from('client_documents')
+    .select(DOCUMENT_COLUMNS)
+    .eq('referral_id', referralId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data
+}
+
+// Called whenever a referral is linked/re-linked/unlinked to a client, so
+// any documents already attached to the referral follow it onto (or off)
+// that client's Documents tab.
+export async function syncReferralDocumentsClient(referralId, clientId) {
+  const { error } = await supabase.from('client_documents').update({ client_id: clientId }).eq('referral_id', referralId)
+  if (error) throw error
 }
 
 export async function getDocumentDownloadUrl(filePath) {
