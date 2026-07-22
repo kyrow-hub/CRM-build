@@ -88,39 +88,6 @@ New signups default to the lowest-privilege `viewer` role — nobody can grant t
 3. Sign in — you now have full administrator access and can promote/manage other users
    from the database directly (a dedicated admin UI for this isn't built yet).
 
-## Email sending (Resend)
-
-The Email page sends real email through [Resend](https://resend.com) via a Supabase Edge
-Function (`supabase/functions/send-email`). The Resend API key never touches the frontend
-- it lives only in the Edge Function's environment.
-
-1. Create a free account at [resend.com](https://resend.com) and grab an API key from the
-   dashboard.
-2. Verify a sending domain under **Domains** (add the SPF/DKIM DNS records Resend gives
-   you). Until a domain is verified, Resend's sandbox only lets you send to your own
-   account email - fine for testing, not for real client emails.
-3. Install the [Supabase CLI](https://supabase.com/docs/guides/cli) if you don't have it,
-   then link your project:
-   ```bash
-   supabase login
-   supabase link --project-ref your-project-ref
-   ```
-4. Set the Edge Function secrets (never commit these):
-   ```bash
-   supabase secrets set RESEND_API_KEY=re_your_api_key
-   supabase secrets set RESEND_FROM_ADDRESS="Bori Muy CRM <crm@yourverifieddomain.org>"
-   ```
-5. Deploy the function:
-   ```bash
-   supabase functions deploy send-email
-   ```
-6. Run the `0008_client_emails.sql` migration (see above) if you haven't already.
-
-Every send is logged to `client_emails` regardless of whether it succeeds, so failures are
-visible in the Email page rather than silently disappearing. Receiving/replying to inbound
-email is a separate, later phase - it needs your domain's MX records pointed at a provider
-and an inbound webhook, which isn't built yet.
-
 ## Running locally
 
 ```bash
@@ -154,14 +121,12 @@ src/
   pages/        One file per route
 supabase/
   migrations/   Numbered SQL migrations, run in order against your Supabase project
-  functions/    Edge Functions (send-email), deployed via the Supabase CLI
 ```
 
 ## What's real vs. mock right now
 
 Authentication, Clients, Case Notes, Goals & Outcomes, Case Activities, Outcomes,
-Referrals, Attendance Register/Group Sessions, Reports, Leads, Partners, Meetings, and
-Email (outbound sending) are all wired to real Supabase tables (and, for Email, a Resend
-Edge Function). Settings and inbound email (replying/receiving) are still not built. See
-`DEVELOPMENT_AUDIT.md` for the full page-by-page breakdown, though note it was written
-early on and hasn't been kept fully in sync with every migration since.
+Referrals, Attendance Register/Group Sessions, Reports, Leads, Partners, and Meetings are
+all wired to real Supabase tables. Settings is not built. See `DEVELOPMENT_AUDIT.md` for the
+full page-by-page breakdown, though note it was written early on and hasn't been kept fully
+in sync with every migration since.
