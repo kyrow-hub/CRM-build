@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { FileText, Share2, TrendingUp, Award, Activity, PackageCheck, Users } from 'lucide-react'
+import { FileText, Share2, TrendingUp, Award, Activity, PackageCheck, Users, Download } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
+import Button from '../components/ui/Button.jsx'
 import StatCard from '../components/ui/StatCard.jsx'
 import StatusPill from '../components/ui/StatusPill.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
@@ -10,6 +11,7 @@ import { countClientsWithDetails, listClientsForReports } from '../services/clie
 import { countReferralsByStatus, listReferrals } from '../services/referralService.js'
 import { countCaseActivities, listAllCaseActivities } from '../services/caseActivityService.js'
 import { countOutcomesByCategory, listAllOutcomes } from '../services/outcomeService.js'
+import { downloadCsv } from '../utils/exportCsv.js'
 
 const GOAL_STATUS_TONE = {
   'Not Started': 'neutral',
@@ -62,6 +64,88 @@ function countBy(items, fn) {
     map[key] = (map[key] ?? 0) + 1
   }
   return Object.entries(map).sort((a, b) => b[1] - a[1])
+}
+
+function notesToRows(notes) {
+  return notes.map((n) => ({
+    Client: clientName(n.client),
+    Note: n.content,
+    Date: n.note_date,
+    Type: n.note_type || '',
+  }))
+}
+
+function activitiesToRows(activities) {
+  return activities.map((a) => ({
+    Client: clientName(a.client),
+    Type: a.activity_type,
+    Date: a.activity_date,
+    Notes: a.notes || '',
+  }))
+}
+
+function referralsToRows(referrals) {
+  return referrals.map((r) => ({
+    Name: [r.first_name, r.last_name].filter(Boolean).join(' '),
+    Source: r.referral_source || '',
+    'Referred By': r.referred_by || '',
+    'Date Received': r.date_received,
+    Status: r.status,
+    'Decline Reason': r.decline_reason || '',
+    'Accepted Date': r.accepted_date || '',
+    'Client Linked': clientName(r.client),
+  }))
+}
+
+function goalsToRows(goals) {
+  return goals.map((g) => ({
+    Client: clientName(g.client),
+    Goal: g.title,
+    'Target Date': g.target_date || '',
+    Status: g.status,
+    Notes: g.notes || '',
+  }))
+}
+
+function outcomesToRows(outcomes) {
+  return outcomes.map((o) => ({
+    Client: clientName(o.client),
+    Category: o.category,
+    Outcome: o.outcome_type,
+    Date: o.outcome_date,
+    Notes: o.notes || '',
+  }))
+}
+
+function demographicsToRows(clients) {
+  return clients.map((c) => ({
+    'Client ID': c.id,
+    Status: c.status,
+    'Date of Birth': c.date_of_birth || '',
+    Gender: c.gender || '',
+    'Indigenous Status': c.indigenous_status || '',
+    'Risk Level': c.risk_level || '',
+    'Cultural Background': c.cultural_background || '',
+    Suburb: c.suburb || '',
+    Postcode: c.postcode || '',
+    'Date Opened': c.date_opened || '',
+    'Date Closed': c.date_closed || '',
+    Archived: c.archived_at ? 'Yes' : 'No',
+  }))
+}
+
+function ExportButton({ rows, filename }) {
+  return (
+    <Button
+      variant="secondary"
+      disabled={rows.length === 0}
+      onClick={() => downloadCsv(filename, rows)}
+      style={{ marginBottom: 18 }}
+    >
+      <Download strokeWidth={2} />
+      Export CSV
+    </Button>
+  )
 }
 
 function BreakdownCard({ title, entries }) {
@@ -204,7 +288,9 @@ export default function Reports() {
 
         <div style={{ marginTop: 20 }}>
           {activeTab === 'case-notes' ? (
-            <Card style={!loading && notes.length === 0 ? undefined : { padding: 0 }}>
+            <>
+              <ExportButton rows={notesToRows(notes)} filename="case-notes-report.csv" />
+              <Card style={!loading && notes.length === 0 ? undefined : { padding: 0 }}>
               {loading ? (
                 <EmptyState icon={FileText} title="Loading..." text="Fetching case notes." />
               ) : notes.length === 0 ? (
@@ -232,8 +318,11 @@ export default function Reports() {
                 </div>
               )}
             </Card>
+            </>
           ) : activeTab === 'activities' ? (
-            <Card style={!loading && activities.length === 0 ? undefined : { padding: 0 }}>
+            <>
+              <ExportButton rows={activitiesToRows(activities)} filename="case-activities-report.csv" />
+              <Card style={!loading && activities.length === 0 ? undefined : { padding: 0 }}>
               {loading ? (
                 <EmptyState icon={Activity} title="Loading..." text="Fetching case activities." />
               ) : activities.length === 0 ? (
@@ -261,8 +350,10 @@ export default function Reports() {
                 </div>
               )}
             </Card>
+            </>
           ) : activeTab === 'referrals' ? (
             <>
+              <ExportButton rows={referralsToRows(referrals)} filename="referrals-report.csv" />
               <div className="details-grid" style={{ marginBottom: 18 }}>
                 {['Received', 'Accepted', 'Declined'].map((status) => (
                   <Card key={status}>
@@ -309,7 +400,9 @@ export default function Reports() {
               </Card>
             </>
           ) : activeTab === 'goals-outcomes' ? (
-            <Card style={!loading && goals.length === 0 ? undefined : { padding: 0 }}>
+            <>
+              <ExportButton rows={goalsToRows(goals)} filename="goals-report.csv" />
+              <Card style={!loading && goals.length === 0 ? undefined : { padding: 0 }}>
               {loading ? (
                 <EmptyState icon={TrendingUp} title="Loading..." text="Fetching goals." />
               ) : goals.length === 0 ? (
@@ -337,8 +430,10 @@ export default function Reports() {
                 </div>
               )}
             </Card>
+            </>
           ) : activeTab === 'outcomes' ? (
             <>
+              <ExportButton rows={outcomesToRows(outcomes)} filename="outcomes-report.csv" />
               <div className="details-grid" style={{ marginBottom: 18 }}>
                 {['Education', 'Employment', 'Health', 'Justice', 'Family', 'Cultural', 'Camp'].map((category) => (
                   <Card key={category}>
@@ -382,6 +477,7 @@ export default function Reports() {
             </>
           ) : activeTab === 'demographics' ? (
             <>
+              <ExportButton rows={demographicsToRows(clientsForReports)} filename="demographics-report.csv" />
               <div className="details-grid" style={{ marginBottom: 18 }}>
                 <Card>
                   <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
