@@ -12,6 +12,7 @@ import CaseActivitiesPanel from '../components/client/CaseActivitiesPanel.jsx'
 import OutcomesPanel from '../components/client/OutcomesPanel.jsx'
 import ClientReferralsPanel from '../components/client/ClientReferralsPanel.jsx'
 import ClientProgramsPanel from '../components/client/ClientProgramsPanel.jsx'
+import ClientServiceDeliveryPanel from '../components/client/ClientServiceDeliveryPanel.jsx'
 import { getClientById, updateClient, archiveClient, listAssignableWorkers } from '../services/clientService.js'
 import { useToast } from '../context/ToastContext.jsx'
 import { initials } from '../utils/initials.js'
@@ -248,6 +249,8 @@ export default function ClientDetail() {
             <OutcomesPanel key={client.id} clientId={client.id} clientName={fullName} />
           ) : activeTab === 'programs' ? (
             <ClientProgramsPanel key={client.id} clientId={client.id} clientName={fullName} />
+          ) : activeTab === 'service-delivery' ? (
+            <ClientServiceDeliveryPanel key={client.id} clientId={client.id} clientName={fullName} />
           ) : (
             <Card>
               <EmptyState

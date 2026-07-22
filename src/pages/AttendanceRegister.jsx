@@ -13,6 +13,7 @@ import { useAttendanceRecords } from '../hooks/useAttendanceRecords.js'
 import { useGroupSessions } from '../hooks/useGroupSessions.js'
 import { getOrCreateSession, createAttendanceRecord } from '../services/attendanceService.js'
 import { createClientNote } from '../services/clientNoteService.js'
+import { createServiceDelivery } from '../services/serviceDeliveryService.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { initials } from '../utils/initials.js'
@@ -47,6 +48,19 @@ const emptyProgramForm = { name: '', location: '' }
 
 const emptyNoteForm = { clientId: '', note: '', confidential: false }
 
+const emptyDeliveryForm = { clientId: '', serviceType: '', quantity: 1, notes: '', confidential: false }
+
+const SERVICE_TYPE_SUGGESTIONS = [
+  'Food Relief',
+  'Transport',
+  'Clothing / Material Aid',
+  'Counselling',
+  'Information & Referral',
+  'Advocacy',
+  'Emergency Relief',
+  'Other',
+]
+
 export default function AttendanceRegister() {
   const { user } = useAuth()
   const toast = useToast()
@@ -65,8 +79,12 @@ export default function AttendanceRegister() {
   const [programForm, setProgramForm] = useState(emptyProgramForm)
   const [noteForm, setNoteForm] = useState(emptyNoteForm)
   const [savedNotes, setSavedNotes] = useState([])
+  const [showDeliveryForm, setShowDeliveryForm] = useState(false)
+  const [deliveryForm, setDeliveryForm] = useState(emptyDeliveryForm)
+  const [savedDeliveries, setSavedDeliveries] = useState([])
   const [submittingAttendance, setSubmittingAttendance] = useState(false)
   const [submittingNote, setSubmittingNote] = useState(false)
+  const [submittingDelivery, setSubmittingDelivery] = useState(false)
 
   useEffect(() => {
     listClients()
@@ -148,6 +166,34 @@ export default function AttendanceRegister() {
       toast.error(err.message)
     } finally {
       setSubmittingNote(false)
+    }
+  }
+
+  const handleAddDelivery = async (e) => {
+    e.preventDefault()
+    if (!deliveryForm.clientId || !deliveryForm.serviceType.trim()) return
+    setSubmittingDelivery(true)
+    try {
+      const delivery = await createServiceDelivery({
+        client_id: deliveryForm.clientId,
+        service_type: deliveryForm.serviceType.trim(),
+        quantity: Number(deliveryForm.quantity) || 1,
+        notes: deliveryForm.notes.trim() || null,
+        confidential: deliveryForm.confidential,
+        created_by: user?.id,
+      })
+      const client = clients.find((c) => c.id === deliveryForm.clientId)
+      toast.success("Service delivery saved to the client's profile.")
+      setSavedDeliveries((prev) => [
+        { ...delivery, clientName: client ? `${client.first_name} ${client.last_name}` : '' },
+        ...prev,
+      ])
+      setDeliveryForm(emptyDeliveryForm)
+      setShowDeliveryForm(false)
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setSubmittingDelivery(false)
     }
   }
 
@@ -520,12 +566,142 @@ export default function AttendanceRegister() {
 
       {activeTab === 'service-delivery' && (
         <div className="fade-up" style={{ marginTop: 20 }}>
-          <Card>
-            <EmptyState
-              icon={PackageCheck}
-              title="No services delivered yet"
-              text="Services delivered during attendance will be recorded here."
-            />
+          <div className="section-head">
+            <div>
+              <div className="section-title">Service Delivery</div>
+              <div className="section-subtitle">
+                Saved directly to the client's profile — visible on their Service Delivery tab
+              </div>
+            </div>
+            <Button onClick={() => setShowDeliveryForm((v) => !v)}>
+              <Plus strokeWidth={2} />
+              Log Service
+            </Button>
+          </div>
+
+          {showDeliveryForm && (
+            <Card style={{ marginBottom: 18 }}>
+              <form onSubmit={handleAddDelivery}>
+                <div className="form-grid">
+                  <div>
+                    <label className="form-label" htmlFor="delivery-client">
+                      Client
+                    </label>
+                    <select
+                      id="delivery-client"
+                      className="input"
+                      value={deliveryForm.clientId}
+                      onChange={(e) => setDeliveryForm((f) => ({ ...f, clientId: e.target.value }))}
+                      required
+                    >
+                      <option value="">Select a client...</option>
+                      {clients.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {[c.first_name, c.last_name].filter(Boolean).join(' ')}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="form-label" htmlFor="delivery-type">
+                      Service Type
+                    </label>
+                    <input
+                      id="delivery-type"
+                      className="input"
+                      list="attendance-service-type-suggestions"
+                      placeholder="e.g. Food Relief"
+                      value={deliveryForm.serviceType}
+                      onChange={(e) => setDeliveryForm((f) => ({ ...f, serviceType: e.target.value }))}
+                      required
+                    />
+                    <datalist id="attendance-service-type-suggestions">
+                      {SERVICE_TYPE_SUGGESTIONS.map((s) => (
+                        <option key={s} value={s} />
+                      ))}
+                    </datalist>
+                  </div>
+                  <div>
+                    <label className="form-label" htmlFor="delivery-quantity">
+                      Quantity
+                    </label>
+                    <input
+                      id="delivery-quantity"
+                      type="number"
+                      min="1"
+                      className="input"
+                      value={deliveryForm.quantity}
+                      onChange={(e) => setDeliveryForm((f) => ({ ...f, quantity: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div style={{ marginTop: 14 }}>
+                  <label className="form-label" htmlFor="delivery-notes">
+                    Notes
+                  </label>
+                  <textarea
+                    id="delivery-notes"
+                    className="input"
+                    rows={2}
+                    placeholder="Optional notes about this service..."
+                    value={deliveryForm.notes}
+                    onChange={(e) => setDeliveryForm((f) => ({ ...f, notes: e.target.value }))}
+                  />
+                </div>
+                <label className="checkbox-field">
+                  <input
+                    type="checkbox"
+                    checked={deliveryForm.confidential}
+                    onChange={(e) => setDeliveryForm((f) => ({ ...f, confidential: e.target.checked }))}
+                  />
+                  <span>Mark as confidential (only visible to you and administrators/managers)</span>
+                </label>
+                <div className="form-actions">
+                  <Button type="button" variant="secondary" onClick={() => setShowDeliveryForm(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={submittingDelivery}>
+                    {submittingDelivery ? 'Saving...' : 'Save Service'}
+                  </Button>
+                </div>
+              </form>
+            </Card>
+          )}
+
+          <Card style={{ padding: 0 }}>
+            {savedDeliveries.length === 0 ? (
+              <EmptyState
+                icon={PackageCheck}
+                title="No services logged this session"
+                text="Services you log here are written straight to the client's Service Delivery tab."
+              />
+            ) : (
+              <div className="data-table">
+                <div className="data-row notes-row data-row--head">
+                  <span>Client</span>
+                  <span>Service</span>
+                  <span>Date</span>
+                  <span>Confidential</span>
+                </div>
+                {savedDeliveries.map((d) => (
+                  <div className="data-row notes-row" key={d.id}>
+                    <div className="client-identity">
+                      <div className={`client-avatar avatar--${avatarTone(d.clientName || '—')}`}>{initials(d.clientName || '—')}</div>
+                      <span>{d.clientName}</span>
+                    </div>
+                    <span className="data-cell-muted">
+                      {d.service_type} (x{d.quantity})
+                    </span>
+                    <span className="data-cell-muted">{d.delivery_date}</span>
+                    {d.confidential ? (
+                      <StatusPill tone="danger">Confidential</StatusPill>
+                    ) : (
+                      <StatusPill tone="neutral">No</StatusPill>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </Card>
         </div>
       )}

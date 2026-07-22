@@ -18,6 +18,7 @@ import { listGroupNoteReport } from '../services/groupSessionService.js'
 import { listGoodNewsStories, createGoodNewsStory } from '../services/goodNewsStoryService.js'
 import { listPrograms } from '../services/programService.js'
 import { getGroupAttendanceReport } from '../services/groupAttendanceReportService.js'
+import { countServiceDeliveries, countServiceDeliveriesByType, listAllServiceDeliveries } from '../services/serviceDeliveryService.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { initials } from '../utils/initials.js'
@@ -256,6 +257,16 @@ function groupAttendanceToRows(sessions) {
   )
 }
 
+function serviceDeliveriesToRows(deliveries) {
+  return deliveries.map((d) => ({
+    Client: clientName(d.client),
+    'Service Type': d.service_type,
+    Quantity: d.quantity,
+    Date: d.delivery_date,
+    Notes: d.notes || '',
+  }))
+}
+
 function ExportButton({ rows, filename }) {
   return (
     <Button
@@ -341,6 +352,9 @@ export default function Reports() {
     presentCount: 0,
     distinctParticipants: 0,
   })
+  const [serviceDeliveriesCount, setServiceDeliveriesCount] = useState(0)
+  const [serviceDeliveriesByType, setServiceDeliveriesByType] = useState({})
+  const [serviceDeliveries, setServiceDeliveries] = useState([])
 
   const refetchGoodNewsStories = () => {
     listGoodNewsStories()
@@ -380,6 +394,9 @@ export default function Reports() {
       listGroupNoteReport(),
       listGoodNewsStories(),
       getGroupAttendanceReport(),
+      countServiceDeliveries(),
+      countServiceDeliveriesByType(),
+      listAllServiceDeliveries(),
     ])
       .then(
         ([
@@ -404,6 +421,9 @@ export default function Reports() {
           groupNoteSessionsResult,
           goodNewsStoriesResult,
           groupAttendanceReportResult,
+          serviceDeliveriesCountResult,
+          serviceDeliveriesByTypeResult,
+          allServiceDeliveries,
         ]) => {
           setNotesCount(nCount)
           setGoalsCount(gCount)
@@ -426,6 +446,9 @@ export default function Reports() {
           setGroupNoteSessions(groupNoteSessionsResult)
           setGoodNewsStories(goodNewsStoriesResult)
           setGroupAttendanceReport(groupAttendanceReportResult)
+          setServiceDeliveriesCount(serviceDeliveriesCountResult)
+          setServiceDeliveriesByType(serviceDeliveriesByTypeResult)
+          setServiceDeliveries(allServiceDeliveries)
         },
       )
       .finally(() => setLoading(false))
@@ -440,7 +463,7 @@ export default function Reports() {
     referrals: { label: 'Referrals Received', value: referralsCount },
     'goals-outcomes': { label: 'Goals Tracked', value: goalsCount },
     outcomes: { label: 'Outcomes Recorded', value: outcomesCount },
-    'service-delivery': { label: 'Services Delivered', value: 0 },
+    'service-delivery': { label: 'Services Delivered', value: serviceDeliveriesCount },
     demographics: { label: 'Clients with Details Captured', value: detailsCount },
     kpi: { label: 'Young People Supported', value: engagedClientCount },
     'program-performance': { label: 'Programs Delivered', value: programPerformance.filter((p) => p.sessionCount > 0).length },
@@ -451,6 +474,8 @@ export default function Reports() {
   }
 
   const groupAttendancePresentRate = formatPercent(groupAttendanceReport.presentCount, groupAttendanceReport.totalRecords)
+
+  const serviceDeliveryEntries = Object.entries(serviceDeliveriesByType).sort((a, b) => b[1] - a[1])
 
   const activeCount = clientsForReports.filter((c) => c.status === 'active' && !c.archived_at).length
   const closedCount = clientsForReports.filter((c) => c.status !== 'active' || c.archived_at).length
@@ -1372,13 +1397,44 @@ export default function Reports() {
                 </div>
               )}
             </>
+          ) : activeTab === 'service-delivery' ? (
+            <>
+              <ExportButton rows={serviceDeliveriesToRows(serviceDeliveries)} filename="service-delivery-report.csv" />
+              <div className="details-grid" style={{ marginBottom: 18 }}>
+                <BreakdownCard title="Services Delivered by Type (total quantity)" entries={serviceDeliveryEntries} />
+              </div>
+              <Card style={!loading && serviceDeliveries.length === 0 ? undefined : { padding: 0 }}>
+                {loading ? (
+                  <EmptyState icon={PackageCheck} title="Loading..." text="Fetching service deliveries." />
+                ) : serviceDeliveries.length === 0 ? (
+                  <EmptyState
+                    icon={PackageCheck}
+                    title="No services delivered yet"
+                    text="Services logged from a client's profile or in Attendance Register will be summarized here."
+                  />
+                ) : (
+                  <div className="data-table">
+                    <div className="data-row notes-row data-row--head">
+                      <span>Client</span>
+                      <span>Service</span>
+                      <span>Date</span>
+                      <span>Quantity</span>
+                    </div>
+                    {serviceDeliveries.map((d) => (
+                      <div className="data-row notes-row" key={d.id}>
+                        <span>{clientName(d.client)}</span>
+                        <span className="data-cell-muted">{d.service_type}</span>
+                        <span className="data-cell-muted">{d.delivery_date}</span>
+                        <span className="data-cell-muted">{d.quantity}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </>
           ) : (
             <Card>
-              <EmptyState
-                icon={PackageCheck}
-                title="Service delivery tracking not built yet"
-                text="There's no database table for this yet, so there's nothing real to report. Program attendance and hours are tracked in Attendance Register."
-              />
+              <EmptyState icon={PackageCheck} title="Nothing to show" text="This tab doesn't have a view configured." />
             </Card>
           )}
         </div>
