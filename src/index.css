@@ -645,6 +645,12 @@ button {
   color: #a3e635;
 }
 
+.avatar--amber,
+.stat-card-icon--amber {
+  background: rgba(251, 191, 36, 0.14);
+  color: #fbbf24;
+}
+
 .clients-cell-muted {
   color: var(--muted);
   font-size: 13px;
@@ -782,6 +788,11 @@ textarea.input {
 
 .camp-session-row {
   grid-template-columns: 1.6fr 1.1fr 1.6fr 1fr;
+}
+
+.roster-row {
+  grid-template-columns: 1fr 0.6fr;
+  padding: 10px 22px;
 }
 
 @media (max-width: 900px) {

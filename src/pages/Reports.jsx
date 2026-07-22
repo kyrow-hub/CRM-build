@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { FileText, Share2, TrendingUp, Award, Activity, PackageCheck, Users, Download, Gauge, BarChart3, Tent, StickyNote, Sparkles, Plus } from 'lucide-react'
+import { FileText, Share2, TrendingUp, Award, Activity, PackageCheck, Users, Download, Gauge, BarChart3, Tent, StickyNote, Sparkles, Plus, ClipboardList } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import Button from '../components/ui/Button.jsx'
 import StatCard from '../components/ui/StatCard.jsx'
@@ -17,8 +17,11 @@ import { getCampReport } from '../services/campReportService.js'
 import { listGroupNoteReport } from '../services/groupSessionService.js'
 import { listGoodNewsStories, createGoodNewsStory } from '../services/goodNewsStoryService.js'
 import { listPrograms } from '../services/programService.js'
+import { getGroupAttendanceReport } from '../services/groupAttendanceReportService.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
+import { initials } from '../utils/initials.js'
+import { avatarTone } from '../utils/avatarColor.js'
 import { downloadCsv } from '../utils/exportCsv.js'
 
 const GOAL_STATUS_TONE = {
@@ -53,7 +56,16 @@ const REPORT_TABS = [
   { key: 'camps', label: 'Overnight Camps', icon: Tent, tone: 'cyan' },
   { key: 'group-notes', label: 'Group Note Report', icon: StickyNote, tone: 'violet' },
   { key: 'good-news', label: 'Good News Stories', icon: Sparkles, tone: 'lime' },
+  { key: 'group-attendance', label: 'Group Attendance', icon: ClipboardList, tone: 'amber' },
 ]
+
+const ATTENDANCE_STATUS_TONE = {
+  Present: 'success',
+  Absent: 'danger',
+  Late: 'warning',
+  'Left Early': 'warning',
+  Excused: 'neutral',
+}
 
 function formatPercent(numerator, denominator) {
   if (!denominator) return '—'
@@ -230,6 +242,20 @@ function goodNewsStoriesToRows(stories) {
   }))
 }
 
+function groupAttendanceToRows(sessions) {
+  return sessions.flatMap((s) =>
+    s.records.map((r) => ({
+      Program: s.program?.name ?? '',
+      'Activity Type': s.activity_type || '',
+      Date: s.session_date,
+      Location: s.location || '',
+      'Overnight Camp': s.overnight_camp ? 'Yes' : 'No',
+      Participant: clientName(r.client),
+      Status: r.attendance_status,
+    })),
+  )
+}
+
 function ExportButton({ rows, filename }) {
   return (
     <Button
@@ -308,6 +334,13 @@ export default function Reports() {
   const [showGoodNewsForm, setShowGoodNewsForm] = useState(false)
   const [goodNewsForm, setGoodNewsForm] = useState(emptyGoodNewsForm)
   const [submittingGoodNews, setSubmittingGoodNews] = useState(false)
+  const [groupAttendanceReport, setGroupAttendanceReport] = useState({
+    sessions: [],
+    totalSessions: 0,
+    totalRecords: 0,
+    presentCount: 0,
+    distinctParticipants: 0,
+  })
 
   const refetchGoodNewsStories = () => {
     listGoodNewsStories()
@@ -346,6 +379,7 @@ export default function Reports() {
       getCampReport(),
       listGroupNoteReport(),
       listGoodNewsStories(),
+      getGroupAttendanceReport(),
     ])
       .then(
         ([
@@ -369,6 +403,7 @@ export default function Reports() {
           campReportResult,
           groupNoteSessionsResult,
           goodNewsStoriesResult,
+          groupAttendanceReportResult,
         ]) => {
           setNotesCount(nCount)
           setGoalsCount(gCount)
@@ -390,6 +425,7 @@ export default function Reports() {
           setCampReport(campReportResult)
           setGroupNoteSessions(groupNoteSessionsResult)
           setGoodNewsStories(goodNewsStoriesResult)
+          setGroupAttendanceReport(groupAttendanceReportResult)
         },
       )
       .finally(() => setLoading(false))
@@ -411,7 +447,10 @@ export default function Reports() {
     camps: { label: 'Overnight Camps Run', value: campReport.totalCamps },
     'group-notes': { label: 'Group Notes Written', value: groupNoteSessions.length },
     'good-news': { label: 'Good News Stories', value: goodNewsStories.length },
+    'group-attendance': { label: 'Group Sessions Attended', value: groupAttendanceReport.totalSessions },
   }
+
+  const groupAttendancePresentRate = formatPercent(groupAttendanceReport.presentCount, groupAttendanceReport.totalRecords)
 
   const activeCount = clientsForReports.filter((c) => c.status === 'active' && !c.archived_at).length
   const closedCount = clientsForReports.filter((c) => c.status !== 'active' || c.archived_at).length
@@ -1242,6 +1281,96 @@ export default function Reports() {
                   </div>
                 )}
               </Card>
+            </>
+          ) : activeTab === 'group-attendance' ? (
+            <>
+              <ExportButton
+                rows={groupAttendanceToRows(groupAttendanceReport.sessions)}
+                filename="group-attendance-report.csv"
+              />
+              <div className="details-grid" style={{ marginBottom: 18 }}>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Sessions with Attendance
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : groupAttendanceReport.totalSessions}
+                  </div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Total Attendance Records
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : groupAttendanceReport.totalRecords}
+                  </div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Distinct Participants
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : groupAttendanceReport.distinctParticipants}
+                  </div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Present Rate
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : groupAttendancePresentRate}
+                  </div>
+                </Card>
+              </div>
+
+              {loading ? (
+                <Card>
+                  <EmptyState icon={ClipboardList} title="Loading..." text="Fetching group attendance." />
+                </Card>
+              ) : groupAttendanceReport.sessions.length === 0 ? (
+                <Card>
+                  <EmptyState
+                    icon={ClipboardList}
+                    title="No group attendance recorded"
+                    text="Attendance logged in Attendance Register will appear here, grouped by session."
+                  />
+                </Card>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {groupAttendanceReport.sessions.map((s) => (
+                    <Card key={s.id} style={{ padding: 0 }}>
+                      <div style={{ padding: '16px 22px', borderBottom: '1px solid var(--border)' }}>
+                        <div style={{ fontWeight: 700, fontSize: 14.5 }}>
+                          {s.program?.name ?? 'Program'}
+                          {s.activity_type ? ` · ${s.activity_type}` : ''}
+                          {s.overnight_camp ? ' · Overnight Camp' : ''}
+                        </div>
+                        <div className="data-cell-muted" style={{ marginTop: 4 }}>
+                          {s.session_date}
+                          {s.location ? ` · ${s.location}` : ''} · {s.records.length}{' '}
+                          {s.records.length === 1 ? 'participant' : 'participants'}
+                        </div>
+                      </div>
+                      <div className="data-table">
+                        {s.records.map((r) => {
+                          const name = clientName(r.client)
+                          return (
+                            <div className="data-row roster-row" key={r.id}>
+                              <div className="client-identity">
+                                <div className={`client-avatar avatar--${avatarTone(name)}`}>{initials(name)}</div>
+                                <span>{name}</span>
+                              </div>
+                              <StatusPill tone={ATTENDANCE_STATUS_TONE[r.attendance_status] ?? 'neutral'}>
+                                {r.attendance_status}
+                              </StatusPill>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </>
           ) : (
             <Card>
