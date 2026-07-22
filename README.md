@@ -178,13 +178,13 @@ supabase/
 ## What's real vs. mock right now
 
 Every page is wired to real Supabase tables (and, for Documents, Supabase Storage):
-Authentication, Dashboard, Clients (including the Programs and Documents tabs), Case
-Notes (now categorised - doubles as service-delivery reporting), Goals & Outcomes, Case
-Activities, Outcomes, Referrals, Attendance Register/Group Sessions, Reports (including
-the KPI, Program Performance, Overnight Camp, Group Note, Group Attendance, Good News
-Stories, and Full Service Report tabs), Leads, Partners, Meetings, Email (sending via
-Resend and receiving via an inbound webhook - see above), and Settings (profile editing
-and team/role management). The only client-profile tabs still not built are Staff
-Register and Follow Ups. See `DEVELOPMENT_AUDIT.md` for the original page-by-page
+Authentication, Dashboard, Clients (including the Programs, Documents, and Staff
+Register tabs), Case Notes (now categorised - doubles as service-delivery reporting),
+Goals & Outcomes, Case Activities, Outcomes, Referrals, Attendance Register/Group
+Sessions, Reports (including the KPI, Program Performance, Overnight Camp, Group Note,
+Group Attendance, Good News Stories, and Full Service Report tabs), Leads, Partners,
+Meetings, Email (sending via Resend and receiving via an inbound webhook - see above),
+and Settings (profile editing and team/role management). The only client-profile tab
+still not built is Follow Ups. See `DEVELOPMENT_AUDIT.md` for the original page-by-page
 breakdown, though note it was
 written early on and hasn't been kept fully in sync with every migration since.
