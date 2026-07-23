@@ -10,6 +10,19 @@ export async function listPrograms() {
   return data
 }
 
+// Every overnight camp session (regardless of whether a group note has
+// been written yet), so the Risk Assessments panel can show which camps
+// still need an uploaded risk assessment.
+export async function listCampSessions() {
+  const { data, error } = await supabase
+    .from('program_sessions')
+    .select('id, session_date, location, program:programs(id, name)')
+    .eq('overnight_camp', true)
+    .order('session_date', { ascending: false })
+  if (error) throw error
+  return data
+}
+
 export async function createProgram(input) {
   if (!input.name?.trim()) throw new Error('Program name is required.')
   const { data, error } = await supabase.from('programs').insert(input).select('*').single()

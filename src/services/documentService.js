@@ -13,11 +13,20 @@ export async function listClientDocuments(clientId) {
   return data
 }
 
-export async function uploadDocument({ clientId = null, referralId = null, documentType = null, file, confidential, uploadedBy }) {
-  if (!clientId && !referralId) throw new Error('A client or referral is required.')
+export async function uploadDocument({
+  clientId = null,
+  referralId = null,
+  programId = null,
+  programSessionId = null,
+  documentType = null,
+  file,
+  confidential,
+  uploadedBy,
+}) {
+  if (!clientId && !referralId && !programId) throw new Error('A client, referral, or program is required.')
   const documentId = crypto.randomUUID()
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-  const folder = clientId || `referral-${referralId}`
+  const folder = clientId || (referralId ? `referral-${referralId}` : `program-${programId}`)
   const filePath = `${folder}/${documentId}-${safeName}`
 
   const { error: uploadError } = await supabase.storage.from(BUCKET).upload(filePath, file, {
@@ -32,6 +41,8 @@ export async function uploadDocument({ clientId = null, referralId = null, docum
       id: documentId,
       client_id: clientId,
       referral_id: referralId,
+      program_id: programId,
+      program_session_id: programSessionId,
       document_type: documentType || null,
       file_name: file.name,
       file_path: filePath,
@@ -70,6 +81,19 @@ export async function listReferralDocuments(referralId) {
 // compliance rollup.
 export async function listAllDocuments() {
   const { data, error } = await supabase.from('client_documents').select(DOCUMENT_COLUMNS).not('client_id', 'is', null)
+  if (error) throw error
+  return data
+}
+
+// Every program/camp risk assessment document (program_id set) - covers
+// both annual Program/Activity uploads (program_session_id null) and
+// per-camp uploads (program_session_id set), split out client-side.
+export async function listAllRiskAssessmentDocuments() {
+  const { data, error } = await supabase
+    .from('client_documents')
+    .select(DOCUMENT_COLUMNS)
+    .not('program_id', 'is', null)
+    .order('created_at', { ascending: false })
   if (error) throw error
   return data
 }

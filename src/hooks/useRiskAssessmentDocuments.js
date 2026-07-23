@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { listAllProgramRiskAssessments } from '../services/programRiskAssessmentService.js'
+import { listAllRiskAssessmentDocuments } from '../services/documentService.js'
 
-export function useProgramRiskAssessments() {
-  const [assessments, setAssessments] = useState([])
+export function useRiskAssessmentDocuments() {
+  const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -10,8 +10,8 @@ export function useProgramRiskAssessments() {
     setLoading(true)
     setError(null)
     try {
-      const data = await listAllProgramRiskAssessments()
-      setAssessments(data)
+      const data = await listAllRiskAssessmentDocuments()
+      setDocuments(data)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -23,5 +23,5 @@ export function useProgramRiskAssessments() {
     refetch()
   }, [refetch])
 
-  return { assessments, loading, error, refetch }
+  return { documents, loading, error, refetch }
 }

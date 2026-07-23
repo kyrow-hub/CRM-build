@@ -22,7 +22,7 @@ gated by Supabase Auth plus role-based RLS policies (see `supabase/migrations/`)
 | Clients (list) | `clients` | Full CRUD, search, status filtering, archive. |
 | Client Detail | `clients` + tab-specific tables (below) | Header/details editable; each tab is its own panel. |
 | Partners / Partner Detail | `partners` | Full CRUD, CSV export. |
-| Attendance Register | `programs`, `program_sessions`, `attendance`, `client_notes`, `program_risk_assessments` | Group session creation (including overnight-camp flag), roster attendance marking, a Notes tab that writes into `client_notes` with a category, and a Risk Assessments tab: annual assessments per program/activity (due every 365 days) and a required assessment per individual camp session. |
+| Attendance Register | `programs`, `program_sessions`, `attendance`, `client_notes`, `client_documents` | Group session creation (including overnight-camp flag), roster attendance marking, a Notes tab that writes into `client_notes` with a category, and a Risk Assessments tab: externally-created risk assessments are uploaded as documents against a program (due every 365 days) or a specific camp session (required for every camp), reusing the same document infrastructure as client/referral documents. |
 | Reports | See "Reports tabs" below | 15 tabs, all reading live data; CSV/XLSX export on every tab. |
 | Meetings | `meetings` | Full CRUD. |
 | Email | `client_emails` | Sending via the `send-email` Edge Function (Resend); receiving via the `receive-email` Edge Function (Resend inbound webhook, Svix-signature verified). |
@@ -95,10 +95,14 @@ and 9, with the following deliberate scope boundaries:
   Information, Referral Document) only require presence, since annual renewal was only
   requested for the Consent Form specifically.
 
-Program/activity and camp risk assessments (Attendance Register → Risk Assessments tab,
-`program_risk_assessments` table) are tracked separately from client compliance, since
-they're about the program/session, not an individual client - they aren't currently
-factored into a client's compliance score or the Reports/Dashboard compliance widgets.
+Program/activity and camp risk assessments (Attendance Register → Risk Assessments tab) are
+uploaded documents, not typed-in records - `client_documents` gained `program_id` and
+`program_session_id` columns (a row must have at least one of client_id/referral_id/
+program_id set) so risk assessment files reuse the exact same storage bucket, signed URLs,
+and RLS as client and referral documents. They're tracked separately from client
+compliance, since they're about the program/session, not an individual client, and aren't
+currently factored into a client's compliance score or the Reports/Dashboard compliance
+widgets.
 
 ## Security posture
 
