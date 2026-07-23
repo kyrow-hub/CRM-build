@@ -31,10 +31,21 @@ const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')
 
 const SMSEVERYONE_API_BASE = 'https://smseveryone.com/api'
 
+// The browser calls this function cross-origin (the app's own domain vs.
+// *.supabase.co), and sends an Authorization header, which means it always
+// preflights with an OPTIONS request first. Without these headers - and
+// without explicitly answering OPTIONS below - the browser blocks the
+// real POST from ever being sent, which looks like a generic network
+// failure client-side with no useful error message at all.
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 function jsonResponse(body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...corsHeaders },
   })
 }
 
@@ -50,6 +61,10 @@ function toSmsEveryoneNumber(raw: string): string {
 }
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
   if (req.method !== 'POST') {
     return jsonResponse({ error: 'Method not allowed' }, 405)
   }
