@@ -27,7 +27,7 @@ gated by Supabase Auth plus role-based RLS policies (see `supabase/migrations/`)
 | Reports | See "Reports tabs" below | 16 tabs, all reading live data; CSV/XLSX export on every tab. |
 | Meetings | `meetings` | Full CRUD. Edit/Delete restricted to admins/managers. |
 | Email | `client_emails` | Sending via the `send-email` Edge Function (Resend); receiving via the `receive-email` Edge Function (Resend inbound webhook, Svix-signature verified). |
-| Settings | `profiles` | Own-profile editing; administrators/managers can view and change other users' roles and active status via Team Management. |
+| Settings | `profiles`, Supabase Auth | Own-profile editing and self-service password change (re-authenticates with the current password via Supabase Auth before updating it); administrators/managers can view and change other users' roles and active status via Team Management. |
 
 ## Client Detail tabs
 

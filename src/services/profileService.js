@@ -31,3 +31,16 @@ export async function updateProfileActive(profileId, active) {
   if (error) throw error
   return data
 }
+
+// Re-authenticates with the current password first so a stale/unattended
+// session can't be used to silently take over the account, then updates it.
+export async function changeOwnPassword(email, currentPassword, newPassword) {
+  if (!currentPassword) throw new Error('Enter your current password.')
+  if (newPassword.length < 6) throw new Error('New password must be at least 6 characters.')
+
+  const { error: reauthError } = await supabase.auth.signInWithPassword({ email, password: currentPassword })
+  if (reauthError) throw new Error('Current password is incorrect.')
+
+  const { error } = await supabase.auth.updateUser({ password: newPassword })
+  if (error) throw error
+}

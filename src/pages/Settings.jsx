@@ -7,7 +7,7 @@ import EmptyState from '../components/ui/EmptyState.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { useProfiles } from '../hooks/useProfiles.js'
-import { updateOwnProfile, updateProfileRole, updateProfileActive } from '../services/profileService.js'
+import { updateOwnProfile, updateProfileRole, updateProfileActive, changeOwnPassword } from '../services/profileService.js'
 import { initials } from '../utils/initials.js'
 import { avatarTone } from '../utils/avatarColor.js'
 
@@ -87,6 +87,99 @@ function MyProfileCard() {
         <div className="form-actions">
           <Button type="submit" disabled={submitting}>
             {submitting ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
+      </form>
+    </Card>
+  )
+}
+
+function ChangePasswordCard() {
+  const { user } = useAuth()
+  const toast = useToast()
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const handleSave = async (e) => {
+    e.preventDefault()
+    if (newPassword !== confirmPassword) {
+      toast.error('New password and confirmation do not match.')
+      return
+    }
+    setSubmitting(true)
+    try {
+      await changeOwnPassword(user.email, currentPassword, newPassword)
+      toast.success('Password changed.')
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Card style={{ marginBottom: 24 }}>
+      <div className="section-title" style={{ marginBottom: 4 }}>
+        Change Password
+      </div>
+      <div className="section-subtitle" style={{ marginBottom: 18 }}>
+        Update the password you use to log in.
+      </div>
+      <form onSubmit={handleSave}>
+        <div className="form-grid">
+          <div>
+            <label className="form-label" htmlFor="pw-current">
+              Current Password
+            </label>
+            <input
+              id="pw-current"
+              type="password"
+              className="input"
+              autoComplete="current-password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <label className="form-label" htmlFor="pw-new">
+              New Password
+            </label>
+            <input
+              id="pw-new"
+              type="password"
+              className="input"
+              autoComplete="new-password"
+              minLength={6}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <label className="form-label" htmlFor="pw-confirm">
+              Confirm New Password
+            </label>
+            <input
+              id="pw-confirm"
+              type="password"
+              className="input"
+              autoComplete="new-password"
+              minLength={6}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
+          </div>
+        </div>
+        <div className="form-actions">
+          <Button type="submit" disabled={submitting}>
+            {submitting ? 'Saving...' : 'Change Password'}
           </Button>
         </div>
       </form>
@@ -204,6 +297,7 @@ export default function Settings() {
   return (
     <div className="fade-up">
       <MyProfileCard />
+      <ChangePasswordCard />
       {canManageTeam && <TeamManagementCard />}
     </div>
   )
