@@ -10,6 +10,16 @@
 //
 // Deploy with: supabase functions deploy receive-sms --no-verify-jwt
 // Required secrets: TWILIO_AUTH_TOKEN, SUPABASE_SERVICE_ROLE_KEY
+// Optional secret: TWILIO_WEBHOOK_URL - Twilio's signature is an HMAC over
+// the exact public URL you configured in the Twilio console. This function
+// defaults to using the incoming request's own URL (req.url), which is
+// correct on most platforms, but some edge/serverless runtimes present a
+// different URL internally than the one the outside world (and therefore
+// Twilio) actually used. If inbound messages are consistently rejected
+// with "Signature verification failed" despite correct secrets, set
+// TWILIO_WEBHOOK_URL to the exact URL entered in Twilio
+// (https://your-project-ref.supabase.co/functions/v1/receive-sms) to force
+// that instead of trusting req.url.
 //
 // --no-verify-jwt is required because Twilio calls this endpoint directly,
 // not as a logged-in CRM user - there is no Supabase auth token to check.
@@ -26,6 +36,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const TWILIO_AUTH_TOKEN = Deno.env.get('TWILIO_AUTH_TOKEN')
+const TWILIO_WEBHOOK_URL = Deno.env.get('TWILIO_WEBHOOK_URL')
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
@@ -97,7 +108,12 @@ Deno.serve(async (req) => {
   const rawBody = await req.text()
   const params = new URLSearchParams(rawBody)
 
-  const verified = await verifyTwilioSignature(req.url, params, TWILIO_AUTH_TOKEN, req.headers.get('X-Twilio-Signature'))
+  const verified = await verifyTwilioSignature(
+    TWILIO_WEBHOOK_URL || req.url,
+    params,
+    TWILIO_AUTH_TOKEN,
+    req.headers.get('X-Twilio-Signature'),
+  )
   if (!verified) {
     return jsonResponse({ error: 'Signature verification failed' }, 401)
   }

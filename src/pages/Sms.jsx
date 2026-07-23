@@ -245,28 +245,25 @@ export default function Sms() {
       const wantsPrimary = bulkForm.scope === 'primary_contact' || bulkForm.scope === 'client_and_primary'
       const wantsAllContacts = bulkForm.scope === 'all_contacts'
 
-      if (wantsClient) {
-        if (client.phone) recipients.push({ clientId, relationshipId: null, to: client.phone, label: clientName(client) })
-        else skipped += 1
+      const beforeCount = recipients.length
+
+      if (wantsClient && client.phone) {
+        recipients.push({ clientId, relationshipId: null, to: client.phone, label: clientName(client) })
       }
       if (wantsPrimary) {
-        if (primaryContacts.length > 0) {
-          for (const contact of primaryContacts) {
-            recipients.push({ clientId, relationshipId: contact.id, to: contact.phone, label: `${clientName(client)}'s ${contact.relationship_type}` })
-          }
-        } else {
-          skipped += 1
+        for (const contact of primaryContacts) {
+          recipients.push({ clientId, relationshipId: contact.id, to: contact.phone, label: `${clientName(client)}'s ${contact.relationship_type}` })
         }
       }
       if (wantsAllContacts) {
-        if (contacts.length > 0) {
-          for (const contact of contacts) {
-            recipients.push({ clientId, relationshipId: contact.id, to: contact.phone, label: `${clientName(client)}'s ${contact.relationship_type}` })
-          }
-        } else {
-          skipped += 1
+        for (const contact of contacts) {
+          recipients.push({ clientId, relationshipId: contact.id, to: contact.phone, label: `${clientName(client)}'s ${contact.relationship_type}` })
         }
       }
+
+      // Counts this client once, even if they miss more than one part of a
+      // combined scope (e.g. "client + primary" with neither on file).
+      if (recipients.length === beforeCount) skipped += 1
     }
     return { recipients, skipped }
   }, [bulkSelectedIds, bulkForm.scope, clients, relationshipsByClient])

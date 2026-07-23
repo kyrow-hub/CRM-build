@@ -184,6 +184,15 @@ guardians, other emergency contacts) - anyone with a phone number on file.
    from a number that doesn't match any client's or contact's phone number are still
    logged (with no client attached) rather than dropped - staff can link them to the
    right client afterwards from the SMS page.
+6. If inbound messages consistently fail with "Signature verification failed" in the
+   function logs despite the secrets above being correct, set
+   `TWILIO_WEBHOOK_URL` to the *exact* URL you entered in the Twilio Console (some
+   platforms present a function with a slightly different URL internally than the
+   public one Twilio actually signs against):
+   ```bash
+   supabase secrets set TWILIO_WEBHOOK_URL=https://your-project-ref.supabase.co/functions/v1/receive-sms
+   supabase functions deploy receive-sms --no-verify-jwt
+   ```
 
 ## Running locally
 
