@@ -30,6 +30,31 @@ export async function createProgram(input) {
   return data
 }
 
+// Includes inactive programs too, for the admin/manager Manage Programs
+// list - listPrograms() stays active-only since it backs dropdown pickers
+// everywhere else.
+export async function listAllPrograms() {
+  const { data, error } = await supabase.from('programs').select('*').order('name')
+  if (error) throw error
+  return data
+}
+
+export async function updateProgram(id, input) {
+  if (!input.name?.trim()) throw new Error('Program name is required.')
+  const { data, error } = await supabase.from('programs').update(input).eq('id', id).select('*').single()
+  if (error) throw error
+  return data
+}
+
+// Cascades to that program's sessions, attendance, roster, and any
+// uploaded risk assessment documents (see migrations 0001, 0026, 0023) -
+// deactivating (editing "Active" to off) is almost always the safer
+// choice; this is for genuine duplicates/mistakes.
+export async function deleteProgram(id) {
+  const { error } = await supabase.from('programs').delete().eq('id', id)
+  if (error) throw error
+}
+
 // There's no separate "enrollment" record - a client's involvement with a
 // program is derived from their attendance history at that program's
 // sessions, grouped into one summary row per program.

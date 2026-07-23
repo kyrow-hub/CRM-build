@@ -19,6 +19,18 @@ export async function createCaseActivity(input) {
   return data
 }
 
+export async function updateCaseActivity(id, input) {
+  if (!input.activity_type) throw new Error('Activity type is required.')
+  const { data, error } = await supabase.from('case_activities').update(input).eq('id', id).select(ACTIVITY_COLUMNS).single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteCaseActivity(id) {
+  const { error } = await supabase.from('case_activities').delete().eq('id', id)
+  if (error) throw error
+}
+
 export async function countCaseActivities() {
   const { count, error } = await supabase.from('case_activities').select('id', { count: 'exact', head: true })
   if (error) throw error

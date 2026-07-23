@@ -19,6 +19,18 @@ export async function createClientNote(input) {
   return data
 }
 
+export async function updateClientNote(id, input) {
+  if (!input.content?.trim()) throw new Error('Note content is required.')
+  const { data, error } = await supabase.from('client_notes').update(input).eq('id', id).select(NOTE_COLUMNS).single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteClientNote(id) {
+  const { error } = await supabase.from('client_notes').delete().eq('id', id)
+  if (error) throw error
+}
+
 export async function countClientNotes() {
   const { count, error } = await supabase.from('client_notes').select('id', { count: 'exact', head: true })
   if (error) throw error

@@ -7,6 +7,7 @@ import EmptyState from '../components/ui/EmptyState.jsx'
 import GroupSessionForm from '../components/attendance/GroupSessionForm.jsx'
 import GroupSessionsList from '../components/attendance/GroupSessionsList.jsx'
 import RiskAssessmentsPanel from '../components/attendance/RiskAssessmentsPanel.jsx'
+import ProgramManagerPanel from '../components/attendance/ProgramManagerPanel.jsx'
 import { listClients, listAssignableWorkers } from '../services/clientService.js'
 import { usePrograms } from '../hooks/usePrograms.js'
 import { createProgram } from '../services/programService.js'
@@ -50,7 +51,8 @@ const emptyProgramForm = { name: '', location: '' }
 const emptyNoteForm = { clientId: '', category: NOTE_CATEGORIES[0], note: '', confidential: false }
 
 export default function AttendanceRegister() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
+  const isAdminManager = profile?.role === 'administrator' || profile?.role === 'manager'
   const toast = useToast()
   const [activeTab, setActiveTab] = useState('register')
   const [clients, setClients] = useState([])
@@ -238,6 +240,12 @@ export default function AttendanceRegister() {
               onCancel={() => setShowGroupSessionForm(false)}
               onSaved={handleGroupSessionSaved}
             />
+          )}
+
+          {isAdminManager && (
+            <div style={{ marginBottom: 24 }}>
+              <ProgramManagerPanel onChanged={refetchPrograms} />
+            </div>
           )}
 
           <div style={{ marginBottom: 24 }}>
