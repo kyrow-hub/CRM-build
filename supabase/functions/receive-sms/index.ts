@@ -60,12 +60,20 @@ function firstDefined(payload: Record<string, unknown>, keys: string[]): string 
   return null
 }
 
-const FROM_KEYS = ['Recipient', 'recipient', 'From', 'from', 'Mobile', 'mobile', 'Sender', 'sender', 'Number', 'number']
+const FROM_KEYS = [
+  'Recipient', 'recipient', 'From', 'from', 'Mobile', 'mobile', 'Sender', 'sender',
+  'Number', 'number', 'Msisdn', 'msisdn', 'MSISDN', 'MobileNumber', 'mobileNumber',
+]
 const BODY_KEYS = ['MessageText', 'messageText', 'Message', 'message', 'Text', 'text', 'Body', 'body']
-const TO_KEYS = ['Originator', 'originator', 'To', 'to']
+const TO_KEYS = ['Originator', 'originator', 'To', 'to', 'Destination', 'destination']
 
 Deno.serve(async (req) => {
-  if (req.method !== 'POST') {
+  // SMS Everyone's own docs describe inbound delivery as an "HTTP GET
+  // webhook" (the opposite of Twilio/Resend, which POST) - so both are
+  // accepted here, with GET's data coming from the query string and POST's
+  // from the body. Confirmed against real test invocations from SMS
+  // Everyone, which were GET requests carrying no recognisable body.
+  if (req.method !== 'GET' && req.method !== 'POST') {
     return textResponse('0', 200)
   }
 
@@ -82,18 +90,24 @@ Deno.serve(async (req) => {
     return textResponse('Unauthorized', 401)
   }
 
-  const rawBody = await req.text()
-  const contentType = req.headers.get('content-type') ?? ''
+  // Start with whatever's in the query string (the GET case, and also
+  // covers a POST that additionally puts data there), excluding our own
+  // auth token so it's never mistaken for message data.
+  const payload: Record<string, unknown> = Object.fromEntries(url.searchParams)
+  delete payload.token
 
-  let payload: Record<string, unknown> = {}
-  try {
-    if (contentType.includes('json')) {
-      payload = JSON.parse(rawBody)
-    } else {
-      payload = Object.fromEntries(new URLSearchParams(rawBody))
+  if (req.method === 'POST') {
+    const rawBody = await req.text()
+    const contentType = req.headers.get('content-type') ?? ''
+    try {
+      if (contentType.includes('json')) {
+        Object.assign(payload, JSON.parse(rawBody))
+      } else if (rawBody) {
+        Object.assign(payload, Object.fromEntries(new URLSearchParams(rawBody)))
+      }
+    } catch {
+      if (rawBody) payload._unparsed_body = rawBody
     }
-  } catch {
-    payload = { _unparsed: rawBody }
   }
 
   const fromNumber = firstDefined(payload, FROM_KEYS)
