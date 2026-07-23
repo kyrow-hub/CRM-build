@@ -15,7 +15,7 @@ gated by Supabase Auth plus role-based RLS policies (see `supabase/migrations/`)
 
 | Page | Backing | Notes |
 |---|---|---|
-| Login | Supabase Auth | Email/password sign in; unauthenticated users are redirected here by `ProtectedRoute`. |
+| Login | Supabase Auth | Email/password sign in; unauthenticated users are redirected here by `ProtectedRoute`. Includes a self-service "Forgot password?" flow (`resetPasswordForEmail`) and a `/reset-password` page (public route, outside `ProtectedRoute`) that lets a user set a new password once they follow the emailed link, which Supabase authenticates with a short-lived recovery session. Requires the Supabase project's Auth redirect URL allow-list to include `<app-url>/reset-password`, and for the built-in or configured SMTP email sending to be enabled in the Supabase dashboard - both are project settings, not something this codebase controls. |
 | Dashboard | `clients`, `leads`, `referrals`, `meetings`, `client_notes`, `case_activities`, `client_outcomes`, `good_news_stories` | Active Clients / Total Leads / Referrals This Week / Meetings This Week / Reviews Overdue / Compliance Alerts / Open Incidents stat cards, plus a real recent-activity feed aggregated across several tables. |
 | Leads | `leads` | Full CRUD, search, filtering. Edit/Delete restricted to admins/managers. |
 | Referrals | `referrals`, `client_documents` | Accept/decline, link/re-link to an existing client at any time, and attach documents before a client record even exists - linking a referral automatically moves its documents onto that client's Documents tab. Edit/Delete restricted to admins/managers. |

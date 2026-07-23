@@ -63,6 +63,13 @@ export function AuthProvider({ children }) {
     await supabase.auth.signOut()
   }, [])
 
+  const requestPasswordReset = useCallback(async (email) => {
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+    return { error: resetError }
+  }, [])
+
   const refreshProfile = useCallback(() => loadProfile(session?.user?.id), [loadProfile, session])
 
   const value = {
@@ -73,6 +80,7 @@ export function AuthProvider({ children }) {
     error,
     signIn,
     signOut,
+    requestPasswordReset,
     refreshProfile,
   }
 

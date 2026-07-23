@@ -44,3 +44,12 @@ export async function changeOwnPassword(email, currentPassword, newPassword) {
   const { error } = await supabase.auth.updateUser({ password: newPassword })
   if (error) throw error
 }
+
+// Used from the /reset-password page after a user follows a "forgot
+// password" email link, which authenticates them with a short-lived
+// recovery session (no current password to verify).
+export async function completePasswordReset(newPassword) {
+  if (newPassword.length < 6) throw new Error('New password must be at least 6 characters.')
+  const { error } = await supabase.auth.updateUser({ password: newPassword })
+  if (error) throw error
+}
