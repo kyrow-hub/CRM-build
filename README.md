@@ -140,59 +140,72 @@ Inbound emails from a sender that doesn't match any client's email address are s
 logged (with no client attached) rather than dropped - staff can link them to the right
 client afterwards from the Email page.
 
-## SMS sending and receiving (Twilio)
+## SMS sending and receiving (SMS Everyone)
 
-The SMS page sends and receives real text messages through [Twilio](https://twilio.com)
-via two Supabase Edge Functions. Neither the Twilio Auth Token nor the Supabase
-service-role key ever touch the frontend - both live only in Edge Function secrets.
-Recipients can be a client directly or one of their `client_relationships` (parents,
-guardians, other emergency contacts) - anyone with a phone number on file.
+The SMS page sends and receives real text messages through
+[SMS Everyone](https://www.smseveryone.com.au) (an Australian SMS gateway) via two
+Supabase Edge Functions. Neither the account password nor the Supabase service-role key
+ever touch the frontend - both live only in Edge Function secrets. Recipients can be a
+client directly or one of their `client_relationships` (parents, guardians, other
+emergency contacts) - anyone with a phone number on file.
+
+API reference: <https://www.smseveryone.com.au/restapi>. SMS Everyone's own docs page
+doesn't show a raw example request - the exact JSON shape used by `send-sms` was
+confirmed against their [unofficial NodeJS wrapper's source](https://github.com/minusInfinite/smseveryone-node),
+which is also worth checking first if SMS Everyone ever changes their API.
 
 ### Sending (send-sms)
 
-1. Create a Twilio account at [twilio.com](https://twilio.com) and buy an SMS-capable
-   number (Console → Phone Numbers). A landline number cannot send/receive SMS - you need
-   a mobile-format virtual number.
-2. Grab your **Account SID** and **Auth Token** from the Twilio Console dashboard.
-3. Install the [Supabase CLI](https://supabase.com/docs/guides/cli) if you don't have it,
+1. Your SMS Everyone account username/password (from their setup email) double as API
+   credentials - no separate API key. Note the **originator** (the dedicated virtual
+   number or alpha sender ID they assigned your account, e.g. `61487373984`).
+2. Install the [Supabase CLI](https://supabase.com/docs/guides/cli) if you don't have it,
    then link your project: `supabase login` and `supabase link --project-ref your-project-ref`.
-4. Set secrets and deploy:
+3. Set secrets and deploy:
    ```bash
-   supabase secrets set TWILIO_ACCOUNT_SID=ACyour_account_sid
-   supabase secrets set TWILIO_AUTH_TOKEN=your_auth_token
-   supabase secrets set TWILIO_FROM_NUMBER=+61your_twilio_number
+   supabase secrets set SMSEVERYONE_USERNAME=your_username
+   supabase secrets set SMSEVERYONE_PASSWORD=your_password
+   supabase secrets set SMSEVERYONE_ORIGINATOR=61your_number_or_sender_id
    supabase functions deploy send-sms
    ```
 
 ### Receiving (receive-sms)
 
+SMS Everyone doesn't document a cryptographic webhook signature the way Twilio/Resend
+do - their own instructions are just "respond with a bare `0`, no HTML, no JSON" to
+acknowledge a ping. Since there's nothing to cryptographically verify, authenticity here
+comes from a **shared secret token you generate yourself**, embedded as a query param in
+the webhook URL you give them.
+
 1. Get your project's **service-role key** from Supabase dashboard → Project Settings →
    API (this key bypasses all security rules - never put it in the frontend or commit it
    anywhere).
-2. Set secrets and deploy with JWT verification disabled (Twilio isn't a logged-in CRM
-   user, so there's no Supabase auth token for it to send - authenticity instead comes
-   from the X-Twilio-Signature header, which the function verifies itself):
+2. Generate a long random token for `SMSEVERYONE_WEBHOOK_TOKEN` (e.g. `openssl rand -hex 32`).
+   Keep this secret - anyone who has it can post fake inbound messages into the CRM.
+3. Set secrets and deploy with JWT verification disabled (SMS Everyone isn't a logged-in
+   CRM user, so there's no Supabase auth token for it to send):
    ```bash
    supabase secrets set SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+   supabase secrets set SMSEVERYONE_WEBHOOK_TOKEN=your_generated_token
    supabase functions deploy receive-sms --no-verify-jwt
    ```
-3. In the Twilio Console, open your number's configuration and set **A message comes
-   in** to point at your deployed function's URL
-   (`https://your-project-ref.supabase.co/functions/v1/receive-sms`), method `HTTP POST`.
-4. Run the `0028_client_sms.sql` migration (see above) if you haven't already.
-5. Text your Twilio number from a phone and check **SMS** in the CRM. Inbound messages
-   from a number that doesn't match any client's or contact's phone number are still
-   logged (with no client attached) rather than dropped - staff can link them to the
-   right client afterwards from the SMS page.
-6. If inbound messages consistently fail with "Signature verification failed" in the
-   function logs despite the secrets above being correct, set
-   `TWILIO_WEBHOOK_URL` to the *exact* URL you entered in the Twilio Console (some
-   platforms present a function with a slightly different URL internally than the
-   public one Twilio actually signs against):
-   ```bash
-   supabase secrets set TWILIO_WEBHOOK_URL=https://your-project-ref.supabase.co/functions/v1/receive-sms
-   supabase functions deploy receive-sms --no-verify-jwt
-   ```
+4. Run the `0028_client_sms.sql` and `0030_client_sms_raw_payload.sql` migrations (see
+   above) if you haven't already.
+5. Email SMS Everyone (whoever set up your account) with your webhook URL **including the
+   token**: `https://your-project-ref.supabase.co/functions/v1/receive-sms?token=your_generated_token`.
+   They'll configure inbound replies to be pushed there.
+6. Text your SMS Everyone number from a phone and check **SMS** in the CRM.
+   **Field names for the inbound payload are best-effort, not confirmed** - SMS
+   Everyone's docs don't show a raw example, so `receive-sms` tries several likely
+   field-name candidates. The complete untouched payload is always saved too (visible via
+   "View raw payload" on an inbound message in the CRM), so if the sender's number or
+   message text show as "unknown" after a real test message, check the raw payload to see
+   the actual field names SMS Everyone used and update the `FROM_KEYS`/`BODY_KEYS`/
+   `TO_KEYS` arrays in `supabase/functions/receive-sms/index.ts` accordingly - no data is
+   lost in the meantime, only the automatic parsing needs adjusting.
+7. Inbound messages from a number that doesn't match any client's or contact's phone
+   number are still logged (with no client attached) rather than dropped - staff can link
+   them to the right client afterwards from the SMS page.
 
 ## Running locally
 
@@ -260,7 +273,7 @@ Documents), Goals & Outcomes, Case Activities, Outcomes, Referrals, Attendance
 Register/Group Sessions, Reports (including the KPI, Program Performance, Overnight
 Camp, Group Note, Group Attendance, Good News Stories, and Full Service Report tabs),
 Leads, Partners, Meetings, Incidents, Email (sending via Resend and receiving via an
-inbound webhook - see above), SMS (sending/receiving via Twilio - see above), Settings
+inbound webhook - see above), SMS (sending/receiving via SMS Everyone - see above), Settings
 (profile editing, self-service password change/reset, and team/role management), and
 Audit Log (administrator/manager-only; a tamper-resistant trigger-based record of every
 change to a client's core data, not just what happens through the app - see

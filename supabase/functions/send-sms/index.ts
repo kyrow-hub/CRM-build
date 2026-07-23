@@ -1,13 +1,19 @@
 // Supabase Edge Function: send-sms
 //
-// Sends a real SMS through Twilio on behalf of the calling (authenticated)
-// user, then logs the result to public.client_sms. The Twilio Account SID
-// and Auth Token live only in this function's environment (set via
-// `supabase secrets set`) - they are never sent to or stored in the
-// frontend.
+// Sends a real SMS through SMS Everyone (smseveryone.com.au) on behalf of
+// the calling (authenticated) user, then logs the result to
+// public.client_sms. The SMS Everyone username/password live only in this
+// function's environment (set via `supabase secrets set`) - they are never
+// sent to or stored in the frontend.
 //
 // Deploy with: supabase functions deploy send-sms
-// Required secrets: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER
+// Required secrets: SMSEVERYONE_USERNAME, SMSEVERYONE_PASSWORD,
+// SMSEVERYONE_ORIGINATOR (the dedicated virtual number or alpha sender ID
+// SMS Everyone assigned to this account)
+//
+// API reference: https://www.smseveryone.com.au/restapi (Campaign Request).
+// Unofficial NodeJS wrapper - used here to confirm the exact request shape
+// since the HTML docs don't show a raw example - https://github.com/minusInfinite/smseveryone-node
 //
 // The caller's own Supabase auth token is forwarded to the Supabase client
 // used inside this function, so every database read/write here still goes
@@ -17,11 +23,13 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const TWILIO_ACCOUNT_SID = Deno.env.get('TWILIO_ACCOUNT_SID')
-const TWILIO_AUTH_TOKEN = Deno.env.get('TWILIO_AUTH_TOKEN')
-const TWILIO_FROM_NUMBER = Deno.env.get('TWILIO_FROM_NUMBER')
+const SMSEVERYONE_USERNAME = Deno.env.get('SMSEVERYONE_USERNAME')
+const SMSEVERYONE_PASSWORD = Deno.env.get('SMSEVERYONE_PASSWORD')
+const SMSEVERYONE_ORIGINATOR = Deno.env.get('SMSEVERYONE_ORIGINATOR')
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')
+
+const SMSEVERYONE_API_BASE = 'https://smseveryone.com/api'
 
 function jsonResponse(body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
@@ -30,16 +38,27 @@ function jsonResponse(body: unknown, status: number) {
   })
 }
 
+// SMS Everyone expects Australian numbers as digits only with the country
+// code and no leading +/0 (e.g. "61412345678"), matching the format shown
+// in their own dashboard. Staff enter phone numbers in free-text format
+// (spaces, +61, leading 0, etc.), so this normalises before sending.
+function toSmsEveryoneNumber(raw: string): string {
+  const digits = raw.replace(/\D/g, '')
+  if (digits.startsWith('61')) return digits
+  if (digits.startsWith('0')) return `61${digits.slice(1)}`
+  return `61${digits}`
+}
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') {
     return jsonResponse({ error: 'Method not allowed' }, 405)
   }
 
-  if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_FROM_NUMBER) {
+  if (!SMSEVERYONE_USERNAME || !SMSEVERYONE_PASSWORD || !SMSEVERYONE_ORIGINATOR) {
     return jsonResponse(
       {
         error:
-          'SMS sending is not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM_NUMBER as function secrets.',
+          'SMS sending is not configured. Set SMSEVERYONE_USERNAME, SMSEVERYONE_PASSWORD, and SMSEVERYONE_ORIGINATOR as function secrets.',
       },
       500,
     )
@@ -97,34 +116,38 @@ Deno.serve(async (req) => {
     }
   }
 
+  const destination = toSmsEveryoneNumber(to)
+
   let status = 'sent'
   let providerMessageId: string | null = null
   let errorMessage: string | null = null
 
   try {
-    const form = new URLSearchParams()
-    form.set('To', to)
-    form.set('From', TWILIO_FROM_NUMBER)
-    form.set('Body', body)
-
-    const twilioResponse = await fetch(
-      `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: form,
+    const smsResponse = await fetch(`${SMSEVERYONE_API_BASE}/campaign`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: `Basic ${btoa(`${SMSEVERYONE_USERNAME}:${SMSEVERYONE_PASSWORD}`)}`,
       },
-    )
+      body: JSON.stringify({
+        action: 'create',
+        originator: SMSEVERYONE_ORIGINATOR,
+        destinations: [destination],
+        message: body,
+      }),
+    })
 
-    const twilioData = await twilioResponse.json()
-    if (!twilioResponse.ok) {
+    const smsData = await smsResponse.json().catch(() => null)
+
+    if (!smsResponse.ok) {
       status = 'failed'
-      errorMessage = twilioData?.message ?? 'Twilio rejected the request'
+      errorMessage = smsData?.Message ?? smsResponse.statusText ?? 'SMS Everyone rejected the request'
+    } else if (smsData && typeof smsData.Code === 'number' && smsData.Code !== 0) {
+      status = 'failed'
+      errorMessage = smsData.Message ?? `SMS Everyone returned error code ${smsData.Code}`
     } else {
-      providerMessageId = twilioData?.sid ?? null
+      providerMessageId = smsData?.CampaignId != null ? String(smsData.CampaignId) : null
     }
   } catch (err) {
     status = 'failed'
@@ -137,8 +160,8 @@ Deno.serve(async (req) => {
       client_id: client_id ?? null,
       relationship_id: relationship_id ?? null,
       direction: 'outbound',
-      from_number: TWILIO_FROM_NUMBER,
-      to_number: to,
+      from_number: SMSEVERYONE_ORIGINATOR,
+      to_number: destination,
       body,
       status,
       provider_message_id: providerMessageId,

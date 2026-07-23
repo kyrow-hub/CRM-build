@@ -118,6 +118,36 @@ function SmsItem({ sms, clients, onUpdated }) {
           </Button>
         </div>
       )}
+      {isInbound && sms.raw_payload && <RawPayload payload={sms.raw_payload} />}
+    </div>
+  )
+}
+
+// While the inbound webhook's exact field names haven't been confirmed
+// against a real SMS Everyone payload yet (see receive-sms/index.ts), the
+// untouched raw payload is always kept - this lets staff check it directly
+// if "From"/message text ever look wrong (e.g. show as "unknown").
+function RawPayload({ payload }) {
+  const [expanded, setExpanded] = useState(false)
+  return (
+    <div style={{ marginTop: 8 }}>
+      <button type="button" className="link-button" onClick={() => setExpanded((v) => !v)}>
+        {expanded ? 'Hide raw payload' : 'View raw payload'}
+      </button>
+      {expanded && (
+        <pre
+          style={{
+            marginTop: 6,
+            padding: 10,
+            background: 'var(--surface-2)',
+            borderRadius: 8,
+            fontSize: 12,
+            overflowX: 'auto',
+          }}
+        >
+          {JSON.stringify(payload, null, 2)}
+        </pre>
+      )}
     </div>
   )
 }

@@ -1,87 +1,46 @@
 // Supabase Edge Function: receive-sms
 //
-// Webhook endpoint for Twilio's inbound SMS delivery. When a reply arrives
-// at your Twilio number, Twilio POSTs form-encoded data here. This verifies
-// the request really came from Twilio (Twilio signs webhooks with
-// X-Twilio-Signature, an HMAC-SHA1 over the exact webhook URL plus the
-// sorted POST parameters), tries to match the sender's phone number to an
-// existing client or client relationship (parent/guardian etc.), and logs
-// the message to public.client_sms.
+// Webhook endpoint for SMS Everyone's inbound reply delivery. SMS Everyone
+// (smseveryone.com.au) doesn't document a cryptographic webhook signature
+// the way Twilio/Resend do - their own instructions are simply "respond
+// with a bare 0 (zero), no HTML, no JSON" to acknowledge a ping. Since
+// there's no signature to verify, authenticity instead comes from a shared
+// secret token embedded in the webhook URL you give them (see
+// SMSEVERYONE_WEBHOOK_TOKEN below) - give SMS Everyone the URL including
+// that token as a query param, and never publish the URL anywhere else.
 //
 // Deploy with: supabase functions deploy receive-sms --no-verify-jwt
-// Required secrets: TWILIO_AUTH_TOKEN, SUPABASE_SERVICE_ROLE_KEY
-// Optional secret: TWILIO_WEBHOOK_URL - Twilio's signature is an HMAC over
-// the exact public URL you configured in the Twilio console. This function
-// defaults to using the incoming request's own URL (req.url), which is
-// correct on most platforms, but some edge/serverless runtimes present a
-// different URL internally than the one the outside world (and therefore
-// Twilio) actually used. If inbound messages are consistently rejected
-// with "Signature verification failed" despite correct secrets, set
-// TWILIO_WEBHOOK_URL to the exact URL entered in Twilio
-// (https://your-project-ref.supabase.co/functions/v1/receive-sms) to force
-// that instead of trusting req.url.
+// Required secrets: SMSEVERYONE_WEBHOOK_TOKEN, SUPABASE_SERVICE_ROLE_KEY
 //
-// --no-verify-jwt is required because Twilio calls this endpoint directly,
-// not as a logged-in CRM user - there is no Supabase auth token to check.
-// Authenticity instead comes entirely from the Twilio signature below,
-// which is why verifying it correctly matters.
+// --no-verify-jwt is required because SMS Everyone calls this endpoint
+// directly, not as a logged-in CRM user - there is no Supabase auth token
+// for it to send.
 //
 // This function necessarily uses the service-role key (unlike send-sms,
 // which forwards the caller's own token) because there is no user session
-// to act as - Twilio is not a signed-in member of staff. The service-role
-// key bypasses Row Level Security entirely, so this function must only
-// ever insert the exact fields below and must not be extended to do
-// anything else without careful review.
+// to act as. The service-role key bypasses Row Level Security entirely, so
+// this function must only ever insert the exact fields below and must not
+// be extended to do anything else without careful review.
+//
+// IMPORTANT - field names are best-effort, not confirmed: SMS Everyone's
+// public docs don't show a raw example inbound payload. The extraction
+// below tries several likely field-name candidates (informed by their
+// documented /replies polling response shape - Received/Originator/
+// Recipient/MessageText - since a provider's webhook and polling payloads
+// commonly share field names), but this has not been verified against a
+// real inbound message yet. The complete raw payload is always saved to
+// client_sms.raw_payload regardless of whether extraction succeeds, so a
+// real test message can be used to confirm/fix the field names afterwards
+// without having lost any data in the meantime.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const TWILIO_AUTH_TOKEN = Deno.env.get('TWILIO_AUTH_TOKEN')
-const TWILIO_WEBHOOK_URL = Deno.env.get('TWILIO_WEBHOOK_URL')
+const SMSEVERYONE_WEBHOOK_TOKEN = Deno.env.get('SMSEVERYONE_WEBHOOK_TOKEN')
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
-function jsonResponse(body: unknown, status: number) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
-
-function bytesToBase64(bytes: Uint8Array): string {
-  let binary = ''
-  for (const b of bytes) binary += String.fromCharCode(b)
-  return btoa(binary)
-}
-
-// See https://www.twilio.com/docs/usage/webhooks/webhooks-security - the
-// signature is an HMAC-SHA1 (base64-encoded) of the full webhook URL with
-// every POST parameter's name+value appended, sorted alphabetically by
-// parameter name, using the Auth Token as the HMAC key.
-async function verifyTwilioSignature(
-  url: string,
-  params: URLSearchParams,
-  authToken: string,
-  signature: string | null,
-): Promise<boolean> {
-  if (!signature) return false
-
-  const sortedKeys = Array.from(new Set(params.keys())).sort()
-  let data = url
-  for (const key of sortedKeys) {
-    data += key + params.get(key)
-  }
-
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(authToken),
-    { name: 'HMAC', hash: 'SHA-1' },
-    false,
-    ['sign'],
-  )
-  const signatureBytes = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data))
-  const expectedSignature = bytesToBase64(new Uint8Array(signatureBytes))
-
-  return expectedSignature === signature
+function textResponse(body: string, status: number) {
+  return new Response(body, { status, headers: { 'Content-Type': 'text/plain' } })
 }
 
 // Stored phone numbers are free-text (staff-entered, various formats).
@@ -93,85 +52,97 @@ function normalizePhone(raw: string): string {
   return digits.slice(-9)
 }
 
+function firstDefined(payload: Record<string, unknown>, keys: string[]): string | null {
+  for (const key of keys) {
+    const value = payload[key]
+    if (value !== undefined && value !== null && String(value).trim() !== '') return String(value)
+  }
+  return null
+}
+
+const FROM_KEYS = ['Recipient', 'recipient', 'From', 'from', 'Mobile', 'mobile', 'Sender', 'sender', 'Number', 'number']
+const BODY_KEYS = ['MessageText', 'messageText', 'Message', 'message', 'Text', 'text', 'Body', 'body']
+const TO_KEYS = ['Originator', 'originator', 'To', 'to']
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') {
-    return jsonResponse({ error: 'Method not allowed' }, 405)
+    return textResponse('0', 200)
   }
 
-  if (!TWILIO_AUTH_TOKEN || !SUPABASE_SERVICE_ROLE_KEY) {
-    return jsonResponse(
-      { error: 'Inbound SMS is not configured. Set TWILIO_AUTH_TOKEN and SUPABASE_SERVICE_ROLE_KEY as function secrets.' },
-      500,
-    )
+  if (!SMSEVERYONE_WEBHOOK_TOKEN || !SUPABASE_SERVICE_ROLE_KEY) {
+    // Still ack with "0" - SMS Everyone isn't equipped to show us a
+    // meaningful error response, and we don't want them to keep retrying
+    // a misconfigured endpoint indefinitely.
+    console.error('Inbound SMS is not configured. Set SMSEVERYONE_WEBHOOK_TOKEN and SUPABASE_SERVICE_ROLE_KEY as function secrets.')
+    return textResponse('0', 200)
+  }
+
+  const url = new URL(req.url)
+  if (url.searchParams.get('token') !== SMSEVERYONE_WEBHOOK_TOKEN) {
+    return textResponse('Unauthorized', 401)
   }
 
   const rawBody = await req.text()
-  const params = new URLSearchParams(rawBody)
+  const contentType = req.headers.get('content-type') ?? ''
 
-  const verified = await verifyTwilioSignature(
-    TWILIO_WEBHOOK_URL || req.url,
-    params,
-    TWILIO_AUTH_TOKEN,
-    req.headers.get('X-Twilio-Signature'),
-  )
-  if (!verified) {
-    return jsonResponse({ error: 'Signature verification failed' }, 401)
+  let payload: Record<string, unknown> = {}
+  try {
+    if (contentType.includes('json')) {
+      payload = JSON.parse(rawBody)
+    } else {
+      payload = Object.fromEntries(new URLSearchParams(rawBody))
+    }
+  } catch {
+    payload = { _unparsed: rawBody }
   }
 
-  const fromNumber = params.get('From') ?? ''
-  const toNumber = params.get('To') ?? ''
-  const body = params.get('Body') ?? ''
-  const messageSid = params.get('MessageSid')
-
-  if (!fromNumber) {
-    return jsonResponse({ error: 'Missing From number in payload' }, 400)
-  }
+  const fromNumber = firstDefined(payload, FROM_KEYS)
+  const body = firstDefined(payload, BODY_KEYS)
+  const toNumber = firstDefined(payload, TO_KEYS)
 
   const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!)
-  const normalizedFrom = normalizePhone(fromNumber)
 
   let clientId: string | null = null
   let relationshipId: string | null = null
 
-  const { data: clients } = await supabase.from('clients').select('id, phone').not('phone', 'is', null)
-  const matchedClient = (clients ?? []).find((c) => c.phone && normalizePhone(c.phone) === normalizedFrom)
-  if (matchedClient) {
-    clientId = matchedClient.id
-  } else {
-    const { data: relationships } = await supabase
-      .from('client_relationships')
-      .select('id, client_id, phone')
-      .not('phone', 'is', null)
-    const matchedRelationship = (relationships ?? []).find(
-      (r) => r.phone && normalizePhone(r.phone) === normalizedFrom,
-    )
-    if (matchedRelationship) {
-      clientId = matchedRelationship.client_id
-      relationshipId = matchedRelationship.id
+  if (fromNumber) {
+    const normalizedFrom = normalizePhone(fromNumber)
+    const { data: clients } = await supabase.from('clients').select('id, phone').not('phone', 'is', null)
+    const matchedClient = (clients ?? []).find((c) => c.phone && normalizePhone(c.phone) === normalizedFrom)
+    if (matchedClient) {
+      clientId = matchedClient.id
+    } else {
+      const { data: relationships } = await supabase
+        .from('client_relationships')
+        .select('id, client_id, phone')
+        .not('phone', 'is', null)
+      const matchedRelationship = (relationships ?? []).find(
+        (r) => r.phone && normalizePhone(r.phone) === normalizedFrom,
+      )
+      if (matchedRelationship) {
+        clientId = matchedRelationship.client_id
+        relationshipId = matchedRelationship.id
+      }
     }
   }
 
-  const { data: logRow, error: logError } = await supabase
-    .from('client_sms')
-    .insert({
-      client_id: clientId,
-      relationship_id: relationshipId,
-      direction: 'inbound',
-      from_number: fromNumber,
-      to_number: toNumber,
-      body,
-      status: 'received',
-      provider_message_id: messageSid,
-      read: false,
-    })
-    .select()
-    .single()
+  const { error: logError } = await supabase.from('client_sms').insert({
+    client_id: clientId,
+    relationship_id: relationshipId,
+    direction: 'inbound',
+    from_number: fromNumber ?? 'unknown',
+    to_number: toNumber ?? 'unknown',
+    body: body ?? '(could not be parsed from the inbound payload - see raw_payload)',
+    status: 'received',
+    read: false,
+    raw_payload: payload,
+  })
 
   if (logError) {
-    return jsonResponse({ error: `Failed to log inbound SMS: ${logError.message}` }, 500)
+    console.error('Failed to log inbound SMS:', logError.message)
   }
 
-  // Twilio expects an empty (or TwiML) 200 response to acknowledge receipt
-  // without sending an automatic reply back to the sender.
-  return new Response('<Response></Response>', { status: 200, headers: { 'Content-Type': 'text/xml' } })
+  // SMS Everyone's own instruction: acknowledge with a bare "0", nothing
+  // else (no HTML, no JSON), regardless of what happened above.
+  return textResponse('0', 200)
 })
