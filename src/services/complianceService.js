@@ -38,6 +38,14 @@ function daysUntil(dateStr) {
 
 const docKey = (type) => `doc_${type.replace(/\s+/g, '_')}`
 
+function mostRecentDocumentDate(documents, type) {
+  const matches = documents.filter((d) => d.document_type === type)
+  if (matches.length === 0) return null
+  return matches.reduce((latest, d) => (d.created_at > latest ? d.created_at : latest), matches[0].created_at)
+}
+
+const CONSENT_FORM_RENEWAL_DAYS = 365
+
 // Pure compliance calculation for one client. Every array argument should
 // already be filtered/scoped to this client. Covers spec Sections 1-7 and
 // 9 (Client Details, Mandatory Documents, Assessments, Reviews, Service
@@ -118,12 +126,20 @@ export function computeClientCompliance({
     ],
   })
 
-  // Section 2: Mandatory Documents
-  const documentChecks = CORE_MANDATORY_DOCUMENT_TYPES.map((type) => ({
-    key: docKey(type),
-    label: type,
-    pass: documentTypesOnFile.has(type),
-  }))
+  // Section 2: Mandatory Documents. Consent Form must be renewed every 12
+  // months (not just present once), per the annual-renewal requirement -
+  // every other core document just needs to exist.
+  const consentFormDate = mostRecentDocumentDate(documents, 'Consent Form')
+  const consentFormCurrent = Boolean(consentFormDate) && daysAgo(consentFormDate) <= CONSENT_FORM_RENEWAL_DAYS
+  const documentChecks = CORE_MANDATORY_DOCUMENT_TYPES.map((type) =>
+    type === 'Consent Form'
+      ? {
+          key: docKey(type),
+          label: consentFormDate && !consentFormCurrent ? 'Consent Form (expired - renew annually)' : 'Consent Form (renewed within 12 months)',
+          pass: consentFormCurrent,
+        }
+      : { key: docKey(type), label: type, pass: documentTypesOnFile.has(type) },
+  )
   documentChecks.push({
     key: docKey('Camp Consent'),
     label: 'Camp Consent (attended a camp)',

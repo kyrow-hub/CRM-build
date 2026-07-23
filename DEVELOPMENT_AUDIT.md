@@ -22,7 +22,7 @@ gated by Supabase Auth plus role-based RLS policies (see `supabase/migrations/`)
 | Clients (list) | `clients` | Full CRUD, search, status filtering, archive. |
 | Client Detail | `clients` + tab-specific tables (below) | Header/details editable; each tab is its own panel. |
 | Partners / Partner Detail | `partners` | Full CRUD, CSV export. |
-| Attendance Register | `programs`, `program_sessions`, `attendance`, `client_notes` | Group session creation (including overnight-camp flag), roster attendance marking, and a Notes tab that writes into `client_notes` with a category. |
+| Attendance Register | `programs`, `program_sessions`, `attendance`, `client_notes`, `program_risk_assessments` | Group session creation (including overnight-camp flag), roster attendance marking, a Notes tab that writes into `client_notes` with a category, and a Risk Assessments tab: annual assessments per program/activity (due every 365 days) and a required assessment per individual camp session. |
 | Reports | See "Reports tabs" below | 15 tabs, all reading live data; CSV/XLSX export on every tab. |
 | Meetings | `meetings` | Full CRUD. |
 | Email | `client_emails` | Sending via the `send-email` Edge Function (Resend); receiving via the `receive-email` Edge Function (Resend inbound webhook, Svix-signature verified). |
@@ -89,6 +89,16 @@ and 9, with the following deliberate scope boundaries:
   non-admin/manager viewer's score reflects only what they're allowed to see, so two staff
   members can see different scores for the same client if confidential records are
   involved.
+- **Consent Form must be renewed every 12 months**, not just uploaded once - the check
+  looks at the most recent Consent Form document's upload date, not just whether one
+  exists. The other core mandatory documents (Privacy Consent, Media Consent, Medical
+  Information, Referral Document) only require presence, since annual renewal was only
+  requested for the Consent Form specifically.
+
+Program/activity and camp risk assessments (Attendance Register → Risk Assessments tab,
+`program_risk_assessments` table) are tracked separately from client compliance, since
+they're about the program/session, not an individual client - they aren't currently
+factored into a client's compliance score or the Reports/Dashboard compliance widgets.
 
 ## Security posture
 

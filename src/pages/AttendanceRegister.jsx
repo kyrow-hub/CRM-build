@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Plus, ClipboardCheck, StickyNote, Users2 } from 'lucide-react'
+import { Plus, ClipboardCheck, StickyNote, Users2, ShieldAlert } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import Button from '../components/ui/Button.jsx'
 import StatusPill from '../components/ui/StatusPill.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
 import GroupSessionForm from '../components/attendance/GroupSessionForm.jsx'
 import GroupSessionsList from '../components/attendance/GroupSessionsList.jsx'
+import RiskAssessmentsPanel from '../components/attendance/RiskAssessmentsPanel.jsx'
 import { listClients, listAssignableWorkers } from '../services/clientService.js'
 import { usePrograms } from '../hooks/usePrograms.js'
 import { createProgram } from '../services/programService.js'
@@ -30,6 +31,7 @@ const ATTENDANCE_STATUS_TONE = {
 const REGISTER_TABS = [
   { key: 'register', label: 'Register', icon: ClipboardCheck },
   { key: 'notes', label: 'Notes', icon: StickyNote },
+  { key: 'risk-assessments', label: 'Risk Assessments', icon: ShieldAlert },
 ]
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
@@ -535,6 +537,11 @@ export default function AttendanceRegister() {
         </div>
       )}
 
+      {activeTab === 'risk-assessments' && (
+        <div className="fade-up" style={{ marginTop: 20 }}>
+          <RiskAssessmentsPanel programs={programs} />
+        </div>
+      )}
     </>
   )
 }
