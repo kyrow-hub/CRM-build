@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus, X } from 'lucide-react'
 import Card from '../ui/Card.jsx'
 import Button from '../ui/Button.jsx'
 import { createGroupSession, recordGroupAttendance, fanOutGroupNote, addIndividualSessionNote } from '../../services/groupSessionService.js'
+import { addProgramParticipant, removeProgramParticipant } from '../../services/programParticipantService.js'
+import { useProgramParticipants } from '../../hooks/useProgramParticipants.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 
@@ -27,26 +29,65 @@ export default function GroupSessionForm({ programs, workers, clients, onCancel,
   const [sessionForm, setSessionForm] = useState(emptySessionForm)
   const [participants, setParticipants] = useState([])
   const [newParticipantId, setNewParticipantId] = useState('')
+  const [addingParticipant, setAddingParticipant] = useState(false)
+  const [removingParticipantId, setRemovingParticipantId] = useState(null)
   const [groupNote, setGroupNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  const { participants: roster, loading: rosterLoading, refetch: refetchRoster } = useProgramParticipants(sessionForm.programId)
+
+  // The roster (who's a member of this program) is persisted server-side;
+  // this just carries each member's per-session status/note across
+  // roster refetches, defaulting new members to Present.
+  useEffect(() => {
+    setParticipants((prev) => {
+      const prevByClient = Object.fromEntries(prev.map((p) => [p.clientId, p]))
+      return roster.map((r) => ({
+        clientId: r.client_id,
+        participantId: r.id,
+        status: prevByClient[r.client_id]?.status ?? 'Present',
+        individualNote: prevByClient[r.client_id]?.individualNote ?? '',
+        showNote: prevByClient[r.client_id]?.showNote ?? false,
+      }))
+    })
+  }, [roster])
 
   const handleProgramChange = (programId) => {
     const program = programs.find((p) => p.id === programId)
     setSessionForm((f) => ({ ...f, programId, location: program?.location ?? f.location }))
   }
 
-  const handleAddParticipant = () => {
-    if (!newParticipantId || participants.some((p) => p.clientId === newParticipantId)) return
-    setParticipants((prev) => [...prev, { clientId: newParticipantId, status: 'Present', individualNote: '', showNote: false }])
-    setNewParticipantId('')
+  const handleAddParticipant = async () => {
+    if (!newParticipantId) return
+    setAddingParticipant(true)
+    try {
+      await addProgramParticipant({ programId: sessionForm.programId, clientId: newParticipantId, createdBy: user?.id })
+      setNewParticipantId('')
+      refetchRoster()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setAddingParticipant(false)
+    }
   }
 
   const updateParticipant = (clientId, changes) => {
     setParticipants((prev) => prev.map((p) => (p.clientId === clientId ? { ...p, ...changes } : p)))
   }
 
-  const removeParticipant = (clientId) => {
-    setParticipants((prev) => prev.filter((p) => p.clientId !== clientId))
+  const removeParticipant = async (participant) => {
+    const client = clients.find((c) => c.id === participant.clientId)
+    const name = client ? [client.first_name, client.last_name].filter(Boolean).join(' ') : 'this participant'
+    if (!window.confirm(`Remove ${name} from this program's roster? They can be re-added later.`)) return
+    setRemovingParticipantId(participant.participantId)
+    try {
+      await removeProgramParticipant(participant.participantId)
+      refetchRoster()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setRemovingParticipantId(null)
+    }
   }
 
   const handleSubmit = async (e) => {
@@ -225,28 +266,39 @@ export default function GroupSessionForm({ programs, workers, clients, onCancel,
         </label>
 
         <div className="form-section-title" style={{ marginTop: 22 }}>
-          Participants
+          Participants (Program Roster)
         </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', marginBottom: 14 }}>
-          <div style={{ flex: 1 }}>
-            <select className="input" value={newParticipantId} onChange={(e) => setNewParticipantId(e.target.value)}>
-              <option value="">Select a client to add...</option>
-              {availableClients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {[c.first_name, c.last_name].filter(Boolean).join(' ')}
-                </option>
-              ))}
-            </select>
+        <div className="data-cell-muted" style={{ marginBottom: 14 }}>
+          {sessionForm.programId
+            ? "Once someone's added here they stay on this program's roster for every future session - just set their status below instead of re-adding them each time."
+            : 'Select a program above to see and manage its roster.'}
+        </div>
+        {sessionForm.programId && (
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', marginBottom: 14 }}>
+            <div style={{ flex: 1 }}>
+              <select className="input" value={newParticipantId} onChange={(e) => setNewParticipantId(e.target.value)}>
+                <option value="">Select a client to add to the roster...</option>
+                {availableClients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {[c.first_name, c.last_name].filter(Boolean).join(' ')}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Button type="button" variant="secondary" onClick={handleAddParticipant} disabled={addingParticipant || !newParticipantId}>
+              <Plus strokeWidth={2} />
+              {addingParticipant ? 'Adding...' : 'Add to Roster'}
+            </Button>
           </div>
-          <Button type="button" variant="secondary" onClick={handleAddParticipant}>
-            <Plus strokeWidth={2} />
-            Add
-          </Button>
-        </div>
+        )}
 
-        {participants.length === 0 ? (
+        {rosterLoading ? (
           <div className="data-cell-muted" style={{ marginBottom: 14 }}>
-            No participants added yet.
+            Loading roster...
+          </div>
+        ) : participants.length === 0 ? (
+          <div className="data-cell-muted" style={{ marginBottom: 14 }}>
+            {sessionForm.programId ? 'No one on this program\'s roster yet - add participants above.' : 'No participants yet.'}
           </div>
         ) : (
           <div className="group-session-participants">
@@ -279,8 +331,10 @@ export default function GroupSessionForm({ programs, workers, clients, onCancel,
                     <button
                       type="button"
                       className="icon-button"
-                      onClick={() => removeParticipant(p.clientId)}
-                      aria-label={`Remove ${name}`}
+                      onClick={() => removeParticipant(p)}
+                      disabled={removingParticipantId === p.participantId}
+                      aria-label={`Remove ${name} from roster`}
+                      title="Remove from program roster"
                     >
                       <X strokeWidth={2} />
                     </button>
