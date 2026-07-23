@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Search, Calendar, Plus, Check, X } from 'lucide-react'
+import { Search, Calendar, Plus, Check, X, Pencil, Trash2 } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import Button from '../components/ui/Button.jsx'
 import StatusPill from '../components/ui/StatusPill.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
 import { useMeetings } from '../hooks/useMeetings.js'
-import { createMeeting, updateMeetingStatus } from '../services/meetingService.js'
+import { createMeeting, updateMeeting, updateMeetingStatus, deleteMeeting } from '../services/meetingService.js'
 import { listClients } from '../services/clientService.js'
 import { listPartners } from '../services/partnerService.js'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -35,9 +35,10 @@ function linkedName(meeting) {
   return '—'
 }
 
-function MeetingRow({ meeting, onUpdated }) {
+function MeetingRow({ meeting, canManage, onUpdated, onEdit, onDeleted }) {
   const toast = useToast()
   const [submitting, setSubmitting] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const handleStatusChange = async (status) => {
     setSubmitting(true)
@@ -49,6 +50,20 @@ function MeetingRow({ meeting, onUpdated }) {
       toast.error(err.message)
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Delete "${meeting.title}"? This cannot be undone.`)) return
+    setDeleting(true)
+    try {
+      await deleteMeeting(meeting.id)
+      toast.success('Meeting deleted.')
+      onDeleted()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -87,22 +102,35 @@ function MeetingRow({ meeting, onUpdated }) {
           </>
         )}
       </div>
+      {canManage && (
+        <div style={{ display: 'flex', gap: 4 }}>
+          <button type="button" className="icon-button" title="Edit" onClick={() => onEdit(meeting)}>
+            <Pencil strokeWidth={2} />
+          </button>
+          <button type="button" className="icon-button" title="Delete" disabled={deleting} onClick={handleDelete}>
+            <Trash2 strokeWidth={2} />
+          </button>
+        </div>
+      )}
     </div>
   )
 }
 
 export default function Meetings() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const toast = useToast()
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [meetingType, setMeetingType] = useState('')
   const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState(emptyForm)
   const [submitting, setSubmitting] = useState(false)
   const [clients, setClients] = useState([])
   const [partners, setPartners] = useState([])
   const { meetings, loading, error, refetch } = useMeetings({ search, status, meetingType })
+
+  const isAdminManager = profile?.role === 'administrator' || profile?.role === 'manager'
 
   useEffect(() => {
     listClients()
@@ -117,7 +145,7 @@ export default function Meetings() {
     e.preventDefault()
     setSubmitting(true)
     try {
-      await createMeeting({
+      const payload = {
         title: form.title,
         meeting_date: form.meeting_date,
         start_time: form.start_time || null,
@@ -127,10 +155,16 @@ export default function Meetings() {
         client_id: form.client_id || null,
         partner_id: form.partner_id || null,
         notes: form.notes || null,
-        created_by: user?.id,
-      })
-      toast.success('Meeting scheduled.')
+      }
+      if (editingId) {
+        await updateMeeting(editingId, payload)
+        toast.success('Meeting updated.')
+      } else {
+        await createMeeting({ ...payload, created_by: user?.id })
+        toast.success('Meeting scheduled.')
+      }
       setForm(emptyForm)
+      setEditingId(null)
       setShowForm(false)
       refetch()
     } catch (err) {
@@ -138,6 +172,28 @@ export default function Meetings() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const handleEdit = (meeting) => {
+    setEditingId(meeting.id)
+    setForm({
+      title: meeting.title || '',
+      meeting_date: meeting.meeting_date,
+      start_time: meeting.start_time ? meeting.start_time.slice(0, 5) : '',
+      end_time: meeting.end_time ? meeting.end_time.slice(0, 5) : '',
+      location: meeting.location || '',
+      meeting_type: meeting.meeting_type,
+      client_id: meeting.client_id || '',
+      partner_id: meeting.partner_id || '',
+      notes: meeting.notes || '',
+    })
+    setShowForm(true)
+  }
+
+  const handleCancelForm = () => {
+    setShowForm(false)
+    setEditingId(null)
+    setForm(emptyForm)
   }
 
   return (
@@ -179,7 +235,15 @@ export default function Meetings() {
               </option>
             ))}
           </select>
-          <Button onClick={() => setShowForm((v) => !v)}>
+          <Button
+            onClick={() => {
+              if (showForm) {
+                handleCancelForm()
+              } else {
+                setShowForm(true)
+              }
+            }}
+          >
             <Plus strokeWidth={2} />
             Add Meeting
           </Button>
@@ -188,6 +252,9 @@ export default function Meetings() {
 
       {showForm && (
         <Card style={{ marginBottom: 18 }}>
+          <div className="section-subtitle" style={{ marginBottom: 14, fontWeight: 700, color: 'var(--text)' }}>
+            {editingId ? 'Edit Meeting' : 'Add Meeting'}
+          </div>
           <form onSubmit={handleAdd}>
             <div className="form-grid">
               <div>
@@ -317,11 +384,11 @@ export default function Meetings() {
               />
             </div>
             <div className="form-actions">
-              <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>
+              <Button type="button" variant="secondary" onClick={handleCancelForm}>
                 Cancel
               </Button>
               <Button type="submit" disabled={submitting}>
-                {submitting ? 'Saving...' : 'Save Meeting'}
+                {submitting ? 'Saving...' : editingId ? 'Save Changes' : 'Save Meeting'}
               </Button>
             </div>
           </form>
@@ -348,9 +415,10 @@ export default function Meetings() {
               <span className="leads-col-phone">Type</span>
               <span className="leads-col-source">Linked</span>
               <span>Status</span>
+              {isAdminManager && <span>Actions</span>}
             </div>
             {meetings.map((m) => (
-              <MeetingRow key={m.id} meeting={m} onUpdated={refetch} />
+              <MeetingRow key={m.id} meeting={m} canManage={isAdminManager} onUpdated={refetch} onEdit={handleEdit} onDeleted={refetch} />
             ))}
           </div>
         )}

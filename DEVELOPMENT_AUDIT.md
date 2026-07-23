@@ -17,15 +17,15 @@ gated by Supabase Auth plus role-based RLS policies (see `supabase/migrations/`)
 |---|---|---|
 | Login | Supabase Auth | Email/password sign in; unauthenticated users are redirected here by `ProtectedRoute`. |
 | Dashboard | `clients`, `leads`, `referrals`, `meetings`, `client_notes`, `case_activities`, `client_outcomes`, `good_news_stories` | Active Clients / Total Leads / Referrals This Week / Meetings This Week / Reviews Overdue / Compliance Alerts / Open Incidents stat cards, plus a real recent-activity feed aggregated across several tables. |
-| Leads | `leads` | Full CRUD, search, filtering. |
-| Referrals | `referrals`, `client_documents` | Accept/decline, link/re-link to an existing client at any time, and attach documents before a client record even exists - linking a referral automatically moves its documents onto that client's Documents tab. |
+| Leads | `leads` | Full CRUD, search, filtering. Edit/Delete restricted to admins/managers. |
+| Referrals | `referrals`, `client_documents` | Accept/decline, link/re-link to an existing client at any time, and attach documents before a client record even exists - linking a referral automatically moves its documents onto that client's Documents tab. Edit/Delete restricted to admins/managers. |
 | Clients (list) | `clients` | Full CRUD, search, status filtering, archive. |
 | Client Detail | `clients` + tab-specific tables (below) | Header/details editable; each tab is its own panel. |
-| Partners / Partner Detail | `partners` | Full CRUD, CSV export. |
+| Partners / Partner Detail | `partners` | Full CRUD, CSV export. Edit/Delete on the partner record and on each contact restricted to admins/managers (deleting a partner cascades to its contacts). |
 | Attendance Register | `programs`, `program_sessions`, `attendance`, `client_notes`, `client_documents`, `program_participants` | Group sessions draw their participant list from each program's persistent roster (`program_participants`) - add someone once and they're pre-populated (defaulting to Present) on every future session for that program instead of being re-selected each time; a status dropdown per person covers Present/Absent/Late/Left Early/Excused, and an X removes someone from the roster entirely (admin/manager only). Admins/managers also get a "Manage Programs" list to edit or delete a program itself (name, location, active flag) - editing a program is now admin/manager-only, tightened from the original any-editor-role policy. Also includes a Notes tab that writes into `client_notes` with a category, and a Risk Assessments tab: externally-created risk assessments are uploaded as documents against a program (due every 365 days) or a specific camp session (required for every camp), reusing the same document infrastructure as client/referral documents. |
 | Incidents | `incidents`, `client_documents` | Organisation-wide incident register (compliance spec Section 8): report an incident (type, severity, description, optionally linked to a client), then work it through Manager Review → Follow-up → Outcome. The Close action is disabled until all three are complete - a genuine hard gate, not a warn-and-override like the client Archive flow, since there's no legitimate reason to close an incident early. Each incident also has a Documents section for uploading scanned hard copies (or any other file), reusing the same document infrastructure as clients/referrals/programs. Confidentiality-aware. |
 | Reports | See "Reports tabs" below | 16 tabs, all reading live data; CSV/XLSX export on every tab. |
-| Meetings | `meetings` | Full CRUD. |
+| Meetings | `meetings` | Full CRUD. Edit/Delete restricted to admins/managers. |
 | Email | `client_emails` | Sending via the `send-email` Edge Function (Resend); receiving via the `receive-email` Edge Function (Resend inbound webhook, Svix-signature verified). |
 | Settings | `profiles` | Own-profile editing; administrators/managers can view and change other users' roles and active status via Team Management. |
 
@@ -38,12 +38,12 @@ gated by Supabase Auth plus role-based RLS policies (see `supabase/migrations/`)
 | Activities | `case_activities` | Confidentiality-aware (private entries visible only to their author and admins/managers). Edit/Delete on each entry - Edit for the author or an admin/manager, Delete restricted to admins/managers. |
 | Case Notes | `client_notes` | Category dropdown backed by `src/data/noteCategories.js` (16 service-delivery categories); confidentiality-aware. Edit/Delete on each entry - Edit for the author or an admin/manager, Delete restricted to admins/managers. |
 | Referrals | `referrals` | Full CRUD. |
-| Goals & Outcomes | `client_goals` | Full CRUD, including target date, actions, responsible person, and progress status. |
-| Outcomes | `client_outcomes` | Confidentiality-aware. |
-| Staff Register | `client_staff_assignments` | Role-on-case assignments (Primary Case Worker, Program Worker, etc.), unique per client/worker/role. |
+| Goals & Outcomes | `client_goals` | Full CRUD, including target date, actions, responsible person, and progress status. Edit/Delete restricted to admins/managers. |
+| Outcomes | `client_outcomes` | Confidentiality-aware. Edit for the author or an admin/manager, Delete restricted to admins/managers. |
+| Staff Register | `client_staff_assignments` | Role-on-case assignments (Primary Case Worker, Program Worker, etc.), unique per client/worker/role. Admins/managers can edit an assignment's role/date/notes or remove it (changing the assigned worker requires remove + re-add). |
 | Programs | derived from `attendance` + `program_sessions` | Read-only summary of program involvement (sessions attended, first/last date); no separate table. |
 | Assessments | `client_assessments`, `client_service_plan_items`, `clients.next_review_date` | Intake/Review/Exit assessments covering presenting issues, risk, needs, protective factors, the Bori Muy SEWB scale, and exit outcomes (SRS-style reporting fields), plus a service plan register. Confidentiality-aware. Saving an Intake or Review assessment sets a "Next Review Due" date on the client (default 90 days out, editable); saving an Exit assessment clears it. Overdue reviews surface on the client profile, Reports, and the Dashboard. Goals from Section 6 of the assessment are managed on the Goals & Outcomes tab (now with Actions and Responsible Person). |
-| Follow Ups | `client_follow_ups` | Pending/Completed/Cancelled workflow with overdue detection. |
+| Follow Ups | `client_follow_ups` | Pending/Completed/Cancelled workflow with overdue detection. Edit/Delete restricted to admins/managers. |
 | Documents | `client_documents` + `client-documents` Storage bucket | Upload/download/delete with confidentiality-aware RLS mirrored at the storage layer. Each upload is tagged with a `document_type` (Consent Form, Privacy Consent, Media Consent, Transport Consent, Camp Consent, Medical Information, Referral Document, Other), which the Compliance tab checks against. Includes documents uploaded from the Referrals page before this client's record existed. |
 | Compliance | derived from most other client tables (see below) | Automated 🟢/🟡/🔴 status, 0-100% score, an alert panel, and a section-by-section checklist, computed client-side (no compliance data is stored). A "Generate Tasks" button turns failing critical checks into `client_follow_ups` tasks assigned to the client's worker (skips anything that already has a matching pending follow-up). See "Compliance engine" below for exactly what's covered. |
 | Incidents | `incidents` | Incidents involving this client, same Manager Review → Follow-up → Outcome workflow as the top-level Incidents page (shares the same `IncidentRow` component), scoped to `client_id`. |
@@ -61,6 +61,8 @@ Missing Consent, Reviews Overdue, No Service in 30 Days, Missing Exit Assessment
 each incident's checklist progress), and Full Service Report (one combined multi-sheet
 spreadsheet across all of the above). All are client-side aggregations over existing tables
 except Full Service Report, which reuses the already-fetched data from the other tabs.
+Good News Stories (`good_news_stories`) additionally has Edit/Delete on each story,
+restricted to admins/managers.
 
 ## Compliance engine
 

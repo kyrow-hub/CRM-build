@@ -20,6 +20,19 @@ export async function createOutcome(input) {
   return data
 }
 
+export async function updateOutcome(id, input) {
+  if (!input.category) throw new Error('Category is required.')
+  if (!input.outcome_type?.trim()) throw new Error('Outcome type is required.')
+  const { data, error } = await supabase.from('client_outcomes').update(input).eq('id', id).select(OUTCOME_COLUMNS).single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteOutcome(id) {
+  const { error } = await supabase.from('client_outcomes').delete().eq('id', id)
+  if (error) throw error
+}
+
 export async function countOutcomesByCategory() {
   const { data, error } = await supabase.from('client_outcomes').select('category')
   if (error) throw error

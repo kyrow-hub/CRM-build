@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Plus, ClipboardList, X } from 'lucide-react'
+import { Plus, ClipboardList, X, Pencil } from 'lucide-react'
 import Card from '../ui/Card.jsx'
 import Button from '../ui/Button.jsx'
 import EmptyState from '../ui/EmptyState.jsx'
 import { useClientStaffAssignments } from '../../hooks/useClientStaffAssignments.js'
-import { addStaffAssignment, removeStaffAssignment } from '../../services/clientStaffAssignmentService.js'
+import { addStaffAssignment, updateStaffAssignment, removeStaffAssignment } from '../../services/clientStaffAssignmentService.js'
 import { listAssignableWorkers } from '../../services/clientService.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -25,6 +25,123 @@ const todayISO = () => new Date().toISOString().slice(0, 10)
 
 const emptyForm = { profile_id: '', role_on_case: ROLE_OPTIONS[0], assigned_date: todayISO(), notes: '' }
 
+function AssignmentItem({ assignment, canManage, onUpdated, onRemoved }) {
+  const toast = useToast()
+  const [editing, setEditing] = useState(false)
+  const [roleOnCase, setRoleOnCase] = useState(assignment.role_on_case)
+  const [assignedDate, setAssignedDate] = useState(assignment.assigned_date)
+  const [notes, setNotes] = useState(assignment.notes || '')
+  const [submitting, setSubmitting] = useState(false)
+  const [removing, setRemoving] = useState(false)
+
+  const name = assignment.worker ? [assignment.worker.first_name, assignment.worker.last_name].filter(Boolean).join(' ') : 'Unknown'
+
+  const handleSave = async (e) => {
+    e.preventDefault()
+    setSubmitting(true)
+    try {
+      await updateStaffAssignment(assignment.id, { role_on_case: roleOnCase, assigned_date: assignedDate, notes: notes.trim() || null })
+      toast.success('Assignment updated.')
+      setEditing(false)
+      onUpdated()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleRemove = async () => {
+    if (!window.confirm(`Remove ${name} from the register?`)) return
+    setRemoving(true)
+    try {
+      await removeStaffAssignment(assignment.id)
+      toast.success('Removed from register.')
+      onRemoved()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setRemoving(false)
+    }
+  }
+
+  if (editing) {
+    return (
+      <div className="note-item">
+        <form onSubmit={handleSave}>
+          <div className="form-grid">
+            <div>
+              <label className="form-label" htmlFor={`sa-role-${assignment.id}`}>
+                Role on Case
+              </label>
+              <select id={`sa-role-${assignment.id}`} className="input" value={roleOnCase} onChange={(e) => setRoleOnCase(e.target.value)}>
+                {ROLE_OPTIONS.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="form-label" htmlFor={`sa-date-${assignment.id}`}>
+                Assigned Date
+              </label>
+              <input
+                id={`sa-date-${assignment.id}`}
+                type="date"
+                className="input"
+                value={assignedDate}
+                onChange={(e) => setAssignedDate(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+          <div style={{ marginTop: 14 }}>
+            <textarea className="input" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </div>
+          <div className="form-actions">
+            <Button type="button" variant="secondary" onClick={() => setEditing(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? 'Saving...' : 'Save'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    )
+  }
+
+  return (
+    <div className="note-item">
+      <div className="note-item-meta">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div className={`client-avatar avatar--${avatarTone(name)}`} style={{ width: 26, height: 26, fontSize: 10.5 }}>
+            {initials(name)}
+          </div>
+          <span>
+            {name} · {assignment.role_on_case}
+          </span>
+        </div>
+        <span>{assignment.assigned_date}</span>
+      </div>
+      {assignment.notes && <div className="note-item-text">{assignment.notes}</div>}
+      {canManage && (
+        <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+          <button type="button" className="link-button" onClick={() => setEditing(true)}>
+            <Pencil strokeWidth={2} style={{ width: 13, height: 13, marginRight: 4, verticalAlign: 'text-bottom' }} />
+            Edit
+          </button>
+          <button type="button" className="link-button" style={{ color: '#f87171' }} onClick={handleRemove} disabled={removing}>
+            <X strokeWidth={2} style={{ width: 13, height: 13, marginRight: 4, verticalAlign: 'text-bottom' }} />
+            {removing ? 'Removing...' : 'Remove'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function ClientStaffRegisterPanel({ clientId, clientName }) {
   const { user, profile } = useAuth()
   const toast = useToast()
@@ -33,9 +150,8 @@ export default function ClientStaffRegisterPanel({ clientId, clientName }) {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [submitting, setSubmitting] = useState(false)
-  const [removingId, setRemovingId] = useState(null)
 
-  const canRemove = profile?.role === 'administrator' || profile?.role === 'manager'
+  const canManage = profile?.role === 'administrator' || profile?.role === 'manager'
 
   useEffect(() => {
     listAssignableWorkers()
@@ -63,20 +179,6 @@ export default function ClientStaffRegisterPanel({ clientId, clientName }) {
       toast.error(err.message)
     } finally {
       setSubmitting(false)
-    }
-  }
-
-  const handleRemove = async (assignment) => {
-    if (!window.confirm(`Remove ${assignment.worker ? [assignment.worker.first_name, assignment.worker.last_name].filter(Boolean).join(' ') : 'this staff member'} from the register?`)) return
-    setRemovingId(assignment.id)
-    try {
-      await removeStaffAssignment(assignment.id)
-      toast.success('Removed from register.')
-      refetch()
-    } catch (err) {
-      toast.error(err.message)
-    } finally {
-      setRemovingId(null)
     }
   }
 
@@ -189,37 +291,9 @@ export default function ClientStaffRegisterPanel({ clientId, clientName }) {
           />
         ) : (
           <div className="note-list">
-            {assignments.map((a) => {
-              const name = a.worker ? [a.worker.first_name, a.worker.last_name].filter(Boolean).join(' ') : 'Unknown'
-              return (
-                <div className="note-item" key={a.id}>
-                  <div className="note-item-meta">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div className={`client-avatar avatar--${avatarTone(name)}`} style={{ width: 26, height: 26, fontSize: 10.5 }}>
-                        {initials(name)}
-                      </div>
-                      <span>
-                        {name} · {a.role_on_case}
-                      </span>
-                    </div>
-                    <span>{a.assigned_date}</span>
-                  </div>
-                  {a.notes && <div className="note-item-text">{a.notes}</div>}
-                  {canRemove && (
-                    <button
-                      type="button"
-                      className="link-button"
-                      style={{ color: '#f87171', marginTop: 8 }}
-                      onClick={() => handleRemove(a)}
-                      disabled={removingId === a.id}
-                    >
-                      <X strokeWidth={2} style={{ width: 13, height: 13, marginRight: 4, verticalAlign: 'text-bottom' }} />
-                      {removingId === a.id ? 'Removing...' : 'Remove'}
-                    </button>
-                  )}
-                </div>
-              )
-            })}
+            {assignments.map((a) => (
+              <AssignmentItem key={a.id} assignment={a} canManage={canManage} onUpdated={refetch} onRemoved={refetch} />
+            ))}
           </div>
         )}
       </Card>

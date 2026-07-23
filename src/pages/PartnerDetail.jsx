@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, MapPin, Phone, Mail, Plus, Download, Users } from 'lucide-react'
+import { useParams, useNavigate, Link } from 'react-router-dom'
+import { ArrowLeft, MapPin, Phone, Mail, Plus, Download, Users, Pencil, Trash2 } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import Button from '../components/ui/Button.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
-import { getPartnerById, addPartnerContact } from '../services/partnerService.js'
+import {
+  getPartnerById,
+  addPartnerContact,
+  updatePartner,
+  deletePartner,
+  updatePartnerContact,
+  deletePartnerContact,
+} from '../services/partnerService.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { downloadCsv, partnersToMailMergeRows } from '../utils/exportCsv.js'
@@ -12,10 +19,12 @@ import { initials } from '../utils/initials.js'
 import { avatarTone } from '../utils/avatarColor.js'
 
 const emptyForm = { name: '', phone: '', email: '' }
+const emptyPartnerForm = { business_name: '', address: '', phone: '', email: '' }
 
 export default function PartnerDetail() {
   const { id } = useParams()
-  const { user } = useAuth()
+  const navigate = useNavigate()
+  const { user, profile } = useAuth()
   const toast = useToast()
   const [partner, setPartner] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -23,6 +32,15 @@ export default function PartnerDetail() {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [submitting, setSubmitting] = useState(false)
+  const [showEditPartner, setShowEditPartner] = useState(false)
+  const [partnerForm, setPartnerForm] = useState(emptyPartnerForm)
+  const [savingPartner, setSavingPartner] = useState(false)
+  const [deletingPartner, setDeletingPartner] = useState(false)
+  const [editingContactId, setEditingContactId] = useState(null)
+  const [contactForm, setContactForm] = useState(emptyForm)
+  const [deletingContactId, setDeletingContactId] = useState(null)
+
+  const isAdminManager = profile?.role === 'administrator' || profile?.role === 'manager'
 
   const refetch = useCallback(async () => {
     setLoading(true)
@@ -64,6 +82,87 @@ export default function PartnerDetail() {
 
   const handleExport = () => {
     downloadCsv(`${partner.business_name}-contacts.csv`, partnersToMailMergeRows([partner]))
+  }
+
+  const openEditPartner = () => {
+    setPartnerForm({
+      business_name: partner.business_name || '',
+      address: partner.address || '',
+      phone: partner.phone || '',
+      email: partner.email || '',
+    })
+    setShowEditPartner(true)
+  }
+
+  const handleSavePartner = async (e) => {
+    e.preventDefault()
+    setSavingPartner(true)
+    try {
+      await updatePartner(id, {
+        business_name: partnerForm.business_name.trim(),
+        address: partnerForm.address.trim() || null,
+        phone: partnerForm.phone.trim() || null,
+        email: partnerForm.email.trim() || null,
+      })
+      toast.success('Partner updated.')
+      setShowEditPartner(false)
+      refetch()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setSavingPartner(false)
+    }
+  }
+
+  const handleDeletePartner = async () => {
+    if (!window.confirm(`Permanently delete "${partner.business_name}" and all of its contacts? This cannot be undone.`)) return
+    setDeletingPartner(true)
+    try {
+      await deletePartner(id)
+      toast.success('Partner deleted.')
+      navigate('/partners')
+    } catch (err) {
+      toast.error(err.message)
+      setDeletingPartner(false)
+    }
+  }
+
+  const openEditContact = (contact) => {
+    setEditingContactId(contact.id)
+    setContactForm({ name: contact.name || '', phone: contact.phone || '', email: contact.email || '' })
+  }
+
+  const handleSaveContact = async (e) => {
+    e.preventDefault()
+    setSubmitting(true)
+    try {
+      await updatePartnerContact(editingContactId, {
+        name: contactForm.name.trim(),
+        phone: contactForm.phone.trim() || null,
+        email: contactForm.email.trim() || null,
+      })
+      toast.success('Contact updated.')
+      setEditingContactId(null)
+      refetch()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleDeleteContact = async (contact) => {
+    if (!window.confirm(`Remove contact "${contact.name}"?`)) return
+    setDeletingContactId(contact.id)
+    try {
+      await deletePartnerContact(contact.id)
+      toast.success('Contact removed.')
+      refetch()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setDeletingContactId(null)
+    }
   }
 
   if (loading) {
@@ -136,9 +235,87 @@ export default function PartnerDetail() {
                 </div>
               </div>
             </div>
+            {isAdminManager && (
+              <div style={{ display: 'flex', gap: 10 }}>
+                <Button variant="secondary" onClick={() => (showEditPartner ? setShowEditPartner(false) : openEditPartner())}>
+                  <Pencil strokeWidth={2} />
+                  Edit
+                </Button>
+                <Button variant="secondary" onClick={handleDeletePartner} disabled={deletingPartner}>
+                  <Trash2 strokeWidth={2} />
+                  {deletingPartner ? 'Deleting...' : 'Delete'}
+                </Button>
+              </div>
+            )}
           </div>
         </Card>
       </div>
+
+      {showEditPartner && (
+        <div className="fade-up">
+          <Card style={{ marginBottom: 18 }}>
+            <form onSubmit={handleSavePartner}>
+              <div className="form-grid">
+                <div>
+                  <label className="form-label" htmlFor="ep-name">
+                    Business Name
+                  </label>
+                  <input
+                    id="ep-name"
+                    className="input"
+                    value={partnerForm.business_name}
+                    onChange={(e) => setPartnerForm((f) => ({ ...f, business_name: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label" htmlFor="ep-address">
+                    Business Address
+                  </label>
+                  <input
+                    id="ep-address"
+                    className="input"
+                    value={partnerForm.address}
+                    onChange={(e) => setPartnerForm((f) => ({ ...f, address: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="form-label" htmlFor="ep-phone">
+                    Business Phone Number
+                  </label>
+                  <input
+                    id="ep-phone"
+                    type="tel"
+                    className="input"
+                    value={partnerForm.phone}
+                    onChange={(e) => setPartnerForm((f) => ({ ...f, phone: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="form-label" htmlFor="ep-email">
+                    Business Email
+                  </label>
+                  <input
+                    id="ep-email"
+                    type="email"
+                    className="input"
+                    value={partnerForm.email}
+                    onChange={(e) => setPartnerForm((f) => ({ ...f, email: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="form-actions">
+                <Button type="button" variant="secondary" onClick={() => setShowEditPartner(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={savingPartner}>
+                  {savingPartner ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
 
       <div className="fade-up" style={{ animationDelay: '120ms' }}>
         <div className="section-head">
@@ -227,14 +404,84 @@ export default function PartnerDetail() {
                 <span>Name</span>
                 <span>Phone</span>
                 <span className="partner-contacts-col-email">Email</span>
+                {isAdminManager && <span>Actions</span>}
               </div>
-              {partner.contacts.map((c) => (
-                <div className="data-row partner-contacts-row" key={c.id}>
-                  <span>{c.name}</span>
-                  <span className="data-cell-muted">{c.phone || '—'}</span>
-                  <span className="data-cell-muted partner-contacts-col-email">{c.email || '—'}</span>
-                </div>
-              ))}
+              {partner.contacts.map((c) =>
+                editingContactId === c.id ? (
+                  <div key={c.id} style={{ padding: '16px 22px', borderBottom: '1px solid var(--border)' }}>
+                    <form onSubmit={handleSaveContact}>
+                      <div className="form-grid">
+                        <div>
+                          <label className="form-label" htmlFor={`ec-name-${c.id}`}>
+                            Contact Name
+                          </label>
+                          <input
+                            id={`ec-name-${c.id}`}
+                            className="input"
+                            value={contactForm.name}
+                            onChange={(e) => setContactForm((f) => ({ ...f, name: e.target.value }))}
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="form-label" htmlFor={`ec-phone-${c.id}`}>
+                            Contact Number
+                          </label>
+                          <input
+                            id={`ec-phone-${c.id}`}
+                            type="tel"
+                            className="input"
+                            value={contactForm.phone}
+                            onChange={(e) => setContactForm((f) => ({ ...f, phone: e.target.value }))}
+                          />
+                        </div>
+                        <div>
+                          <label className="form-label" htmlFor={`ec-email-${c.id}`}>
+                            Contact Email
+                          </label>
+                          <input
+                            id={`ec-email-${c.id}`}
+                            type="email"
+                            className="input"
+                            value={contactForm.email}
+                            onChange={(e) => setContactForm((f) => ({ ...f, email: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+                      <div className="form-actions">
+                        <Button type="button" variant="secondary" onClick={() => setEditingContactId(null)}>
+                          Cancel
+                        </Button>
+                        <Button type="submit" disabled={submitting}>
+                          {submitting ? 'Saving...' : 'Save'}
+                        </Button>
+                      </div>
+                    </form>
+                  </div>
+                ) : (
+                  <div className="data-row partner-contacts-row" key={c.id}>
+                    <span>{c.name}</span>
+                    <span className="data-cell-muted">{c.phone || '—'}</span>
+                    <span className="data-cell-muted partner-contacts-col-email">{c.email || '—'}</span>
+                    {isAdminManager && (
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button type="button" className="icon-button" title="Edit" onClick={() => openEditContact(c)}>
+                          <Pencil strokeWidth={2} />
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button"
+                          title="Delete"
+                          disabled={deletingContactId === c.id}
+                          onClick={() => handleDeleteContact(c)}
+                        >
+                          <Trash2 strokeWidth={2} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ),
+              )}
             </div>
           )}
         </Card>

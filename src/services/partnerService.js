@@ -28,6 +28,18 @@ export async function createPartner(input) {
   return data
 }
 
+export async function updatePartner(id, input) {
+  if (!input.business_name?.trim()) throw new Error('Business name is required.')
+  const { data, error } = await supabase.from('partners').update(input).eq('id', id).select(PARTNER_COLUMNS).single()
+  if (error) throw error
+  return data
+}
+
+export async function deletePartner(id) {
+  const { error } = await supabase.from('partners').delete().eq('id', id)
+  if (error) throw error
+}
+
 export async function addPartnerContact(partnerId, input) {
   if (!input.name?.trim()) throw new Error('Contact name is required.')
   const { data, error } = await supabase
@@ -37,4 +49,16 @@ export async function addPartnerContact(partnerId, input) {
     .single()
   if (error) throw error
   return data
+}
+
+export async function updatePartnerContact(id, input) {
+  if (!input.name?.trim()) throw new Error('Contact name is required.')
+  const { data, error } = await supabase.from('partner_contacts').update(input).eq('id', id).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function deletePartnerContact(id) {
+  const { error } = await supabase.from('partner_contacts').delete().eq('id', id)
+  if (error) throw error
 }

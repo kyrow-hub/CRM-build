@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { Search, Target, Plus } from 'lucide-react'
+import { Search, Target, Plus, Pencil, Trash2 } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import Button from '../components/ui/Button.jsx'
 import StatusPill from '../components/ui/StatusPill.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
 import { useLeads } from '../hooks/useLeads.js'
-import { createLead } from '../services/leadService.js'
+import { createLead, updateLead, deleteLead } from '../services/leadService.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { initials } from '../utils/initials.js'
@@ -31,28 +31,73 @@ const emptyForm = {
 }
 
 export default function Leads() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const toast = useToast()
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState(emptyForm)
   const [submitting, setSubmitting] = useState(false)
+  const [deletingId, setDeletingId] = useState(null)
   const { leads, loading, error, refetch } = useLeads({ search, status })
+
+  const isAdminManager = profile?.role === 'administrator' || profile?.role === 'manager'
 
   const handleAdd = async (e) => {
     e.preventDefault()
     setSubmitting(true)
     try {
-      await createLead({ ...form, created_by: user?.id })
-      toast.success('Lead added.')
+      if (editingId) {
+        await updateLead(editingId, form)
+        toast.success('Lead updated.')
+      } else {
+        await createLead({ ...form, created_by: user?.id })
+        toast.success('Lead added.')
+      }
       setForm(emptyForm)
+      setEditingId(null)
       setShowForm(false)
       refetch()
     } catch (err) {
       toast.error(err.message)
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleEdit = (lead) => {
+    setEditingId(lead.id)
+    setForm({
+      first_name: lead.first_name || '',
+      last_name: lead.last_name || '',
+      company: lead.company || '',
+      email: lead.email || '',
+      phone: lead.phone || '',
+      source: lead.source || '',
+      status: lead.status,
+    })
+    setShowForm(true)
+  }
+
+  const handleCancelForm = () => {
+    setShowForm(false)
+    setEditingId(null)
+    setForm(emptyForm)
+  }
+
+  const handleDelete = async (lead) => {
+    const name = [lead.first_name, lead.last_name].filter(Boolean).join(' ')
+    if (!window.confirm(`Delete ${name}? This cannot be undone.`)) return
+    setDeletingId(lead.id)
+    try {
+      await deleteLead(lead.id)
+      toast.success('Lead deleted.')
+      refetch()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -82,7 +127,15 @@ export default function Leads() {
               </option>
             ))}
           </select>
-          <Button onClick={() => setShowForm((v) => !v)}>
+          <Button
+            onClick={() => {
+              if (showForm) {
+                handleCancelForm()
+              } else {
+                setShowForm(true)
+              }
+            }}
+          >
             <Plus strokeWidth={2} />
             Add Lead
           </Button>
@@ -91,6 +144,9 @@ export default function Leads() {
 
       {showForm && (
         <Card style={{ marginBottom: 18 }}>
+          <div className="section-subtitle" style={{ marginBottom: 14, fontWeight: 700, color: 'var(--text)' }}>
+            {editingId ? 'Edit Lead' : 'Add Lead'}
+          </div>
           <form onSubmit={handleAdd}>
             <div className="form-grid">
               <div>
@@ -182,11 +238,11 @@ export default function Leads() {
               </div>
             </div>
             <div className="form-actions">
-              <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>
+              <Button type="button" variant="secondary" onClick={handleCancelForm}>
                 Cancel
               </Button>
               <Button type="submit" disabled={submitting}>
-                {submitting ? 'Saving...' : 'Save Lead'}
+                {submitting ? 'Saving...' : editingId ? 'Save Changes' : 'Save Lead'}
               </Button>
             </div>
           </form>
@@ -209,6 +265,7 @@ export default function Leads() {
               <span className="leads-col-phone">Phone</span>
               <span className="leads-col-source">Source</span>
               <span>Status</span>
+              {isAdminManager && <span>Actions</span>}
             </div>
             {leads.map((l) => {
               const fullName = [l.first_name, l.last_name].filter(Boolean).join(' ')
@@ -223,6 +280,22 @@ export default function Leads() {
                   <span className="data-cell-muted leads-col-phone">{l.phone || '—'}</span>
                   <span className="data-cell-muted leads-col-source">{l.source || '—'}</span>
                   <StatusPill tone={STATUS_TONE[l.status] ?? 'neutral'}>{l.status}</StatusPill>
+                  {isAdminManager && (
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button type="button" className="icon-button" title="Edit" onClick={() => handleEdit(l)}>
+                        <Pencil strokeWidth={2} />
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-button"
+                        title="Delete"
+                        disabled={deletingId === l.id}
+                        onClick={() => handleDelete(l)}
+                      >
+                        <Trash2 strokeWidth={2} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               )
             })}

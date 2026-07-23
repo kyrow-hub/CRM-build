@@ -25,3 +25,16 @@ export async function createLead(input) {
   if (error) throw error
   return data
 }
+
+export async function updateLead(id, input) {
+  if (!input.first_name?.trim()) throw new Error('First name is required.')
+  if (!input.last_name?.trim()) throw new Error('Last name is required.')
+  const { data, error } = await supabase.from('leads').update(input).eq('id', id).select(LEAD_COLUMNS).single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteLead(id) {
+  const { error } = await supabase.from('leads').delete().eq('id', id)
+  if (error) throw error
+}

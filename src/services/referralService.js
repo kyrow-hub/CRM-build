@@ -32,6 +32,11 @@ export async function updateReferral(id, input) {
   return data
 }
 
+export async function deleteReferral(id) {
+  const { error } = await supabase.from('referrals').delete().eq('id', id)
+  if (error) throw error
+}
+
 export async function listReferralsForClient(clientId) {
   const { data, error } = await supabase
     .from('referrals')

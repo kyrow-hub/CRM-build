@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Plus, CalendarClock, Check, X, RotateCcw } from 'lucide-react'
+import { Plus, CalendarClock, Check, X, RotateCcw, Pencil, Trash2 } from 'lucide-react'
 import Card from '../ui/Card.jsx'
 import Button from '../ui/Button.jsx'
 import EmptyState from '../ui/EmptyState.jsx'
 import StatusPill from '../ui/StatusPill.jsx'
 import { useClientFollowUps } from '../../hooks/useClientFollowUps.js'
-import { createFollowUp, updateFollowUpStatus } from '../../services/followUpService.js'
+import { createFollowUp, updateFollowUp, updateFollowUpStatus, deleteFollowUp } from '../../services/followUpService.js'
 import { listAssignableWorkers } from '../../services/clientService.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -16,9 +16,12 @@ const todayISO = () => new Date().toISOString().slice(0, 10)
 
 const emptyForm = { title: '', due_date: todayISO(), assigned_to: '', notes: '' }
 
-function FollowUpItem({ followUp, onUpdated }) {
+function FollowUpItem({ followUp, workers, canManage, onUpdated, onDeleted }) {
   const toast = useToast()
   const [submitting, setSubmitting] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [editForm, setEditForm] = useState(null)
+  const [deleting, setDeleting] = useState(false)
 
   const assigneeName = followUp.assignee
     ? [followUp.assignee.first_name, followUp.assignee.last_name].filter(Boolean).join(' ')
@@ -38,6 +41,115 @@ function FollowUpItem({ followUp, onUpdated }) {
     }
   }
 
+  const openEdit = () => {
+    setEditForm({
+      title: followUp.title,
+      due_date: followUp.due_date,
+      assigned_to: followUp.assigned_to || '',
+      notes: followUp.notes || '',
+    })
+    setEditing(true)
+  }
+
+  const handleSaveEdit = async (e) => {
+    e.preventDefault()
+    setSubmitting(true)
+    try {
+      await updateFollowUp(followUp.id, {
+        title: editForm.title.trim(),
+        due_date: editForm.due_date,
+        assigned_to: editForm.assigned_to || null,
+        notes: editForm.notes.trim() || null,
+      })
+      toast.success('Follow-up updated.')
+      setEditing(false)
+      onUpdated()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Delete the follow-up "${followUp.title}"? This cannot be undone.`)) return
+    setDeleting(true)
+    try {
+      await deleteFollowUp(followUp.id)
+      toast.success('Follow-up deleted.')
+      onDeleted()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  if (editing) {
+    return (
+      <div className="note-item">
+        <form onSubmit={handleSaveEdit}>
+          <div className="form-grid">
+            <div>
+              <label className="form-label" htmlFor={`ef-title-${followUp.id}`}>
+                Title
+              </label>
+              <input
+                id={`ef-title-${followUp.id}`}
+                className="input"
+                value={editForm.title}
+                onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
+                required
+              />
+            </div>
+            <div>
+              <label className="form-label" htmlFor={`ef-date-${followUp.id}`}>
+                Due Date
+              </label>
+              <input
+                id={`ef-date-${followUp.id}`}
+                type="date"
+                className="input"
+                value={editForm.due_date}
+                onChange={(e) => setEditForm((f) => ({ ...f, due_date: e.target.value }))}
+                required
+              />
+            </div>
+            <div>
+              <label className="form-label" htmlFor={`ef-assignee-${followUp.id}`}>
+                Assigned To
+              </label>
+              <select
+                id={`ef-assignee-${followUp.id}`}
+                className="input"
+                value={editForm.assigned_to}
+                onChange={(e) => setEditForm((f) => ({ ...f, assigned_to: e.target.value }))}
+              >
+                <option value="">Unassigned</option>
+                {workers.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {[w.first_name, w.last_name].filter(Boolean).join(' ') || w.id}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div style={{ marginTop: 14 }}>
+            <textarea className="input" rows={2} value={editForm.notes} onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))} />
+          </div>
+          <div className="form-actions">
+            <Button type="button" variant="secondary" onClick={() => setEditing(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? 'Saving...' : 'Save'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    )
+  }
+
   return (
     <div className="note-item">
       <div className="note-item-meta">
@@ -52,7 +164,7 @@ function FollowUpItem({ followUp, onUpdated }) {
         {assigneeName ? `Assigned to ${assigneeName}` : 'Unassigned'}
       </div>
       {followUp.notes && <div className="note-item-text">{followUp.notes}</div>}
-      <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+      <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
         {followUp.status === 'Pending' && (
           <>
             <button type="button" className="link-button" onClick={() => handleStatusChange('Completed')} disabled={submitting}>
@@ -77,19 +189,33 @@ function FollowUpItem({ followUp, onUpdated }) {
             Reopen
           </button>
         )}
+        {canManage && (
+          <>
+            <button type="button" className="link-button" onClick={openEdit}>
+              <Pencil strokeWidth={2} style={{ width: 13, height: 13, marginRight: 4, verticalAlign: 'text-bottom' }} />
+              Edit
+            </button>
+            <button type="button" className="link-button" style={{ color: '#f87171' }} onClick={handleDelete} disabled={deleting}>
+              <Trash2 strokeWidth={2} style={{ width: 13, height: 13, marginRight: 4, verticalAlign: 'text-bottom' }} />
+              {deleting ? 'Deleting...' : 'Delete'}
+            </button>
+          </>
+        )}
       </div>
     </div>
   )
 }
 
 export default function ClientFollowUpsPanel({ clientId, clientName }) {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const toast = useToast()
   const { followUps, loading, error, refetch } = useClientFollowUps(clientId)
   const [workers, setWorkers] = useState([])
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [submitting, setSubmitting] = useState(false)
+
+  const isAdminManager = profile?.role === 'administrator' || profile?.role === 'manager'
 
   useEffect(() => {
     listAssignableWorkers()
@@ -221,7 +347,7 @@ export default function ClientFollowUpsPanel({ clientId, clientName }) {
         ) : (
           <div className="note-list">
             {followUps.map((f) => (
-              <FollowUpItem key={f.id} followUp={f} onUpdated={refetch} />
+              <FollowUpItem key={f.id} followUp={f} workers={workers} canManage={isAdminManager} onUpdated={refetch} onDeleted={refetch} />
             ))}
           </div>
         )}

@@ -19,6 +19,18 @@ export async function createClientGoal(input) {
   return data
 }
 
+export async function updateClientGoal(id, input) {
+  if (!input.title?.trim()) throw new Error('Goal title is required.')
+  const { data, error } = await supabase.from('client_goals').update(input).eq('id', id).select(GOAL_COLUMNS).single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteClientGoal(id) {
+  const { error } = await supabase.from('client_goals').delete().eq('id', id)
+  if (error) throw error
+}
+
 export async function countClientGoals() {
   const { count, error } = await supabase.from('client_goals').select('id', { count: 'exact', head: true })
   if (error) throw error

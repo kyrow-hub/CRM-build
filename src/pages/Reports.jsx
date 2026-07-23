@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { FileText, Share2, TrendingUp, Award, Activity, PackageCheck, Users, Download, Gauge, BarChart3, Tent, StickyNote, Sparkles, Plus, ClipboardList, ClipboardCheck, CalendarClock, FileSpreadsheet, ShieldCheck, AlertOctagon } from 'lucide-react'
+import { FileText, Share2, TrendingUp, Award, Activity, PackageCheck, Users, Download, Gauge, BarChart3, Tent, StickyNote, Sparkles, Plus, ClipboardList, ClipboardCheck, CalendarClock, FileSpreadsheet, ShieldCheck, AlertOctagon, Pencil, Trash2 } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import Button from '../components/ui/Button.jsx'
 import StatCard from '../components/ui/StatCard.jsx'
@@ -16,7 +16,7 @@ import { getEngagedClientCount, getProgramHoursStats, getAttendanceStats, getGoa
 import { getProgramPerformance } from '../services/programPerformanceService.js'
 import { getCampReport } from '../services/campReportService.js'
 import { listGroupNoteReport } from '../services/groupSessionService.js'
-import { listGoodNewsStories, createGoodNewsStory } from '../services/goodNewsStoryService.js'
+import { listGoodNewsStories, createGoodNewsStory, updateGoodNewsStory, deleteGoodNewsStory } from '../services/goodNewsStoryService.js'
 import { listPrograms } from '../services/programService.js'
 import { getGroupAttendanceReport } from '../services/groupAttendanceReportService.js'
 import { listAllAssessments } from '../services/assessmentService.js'
@@ -358,8 +358,9 @@ const todayISO = () => new Date().toISOString().slice(0, 10)
 const emptyGoodNewsForm = { title: '', story: '', client_id: '', program_id: '', story_date: todayISO() }
 
 export default function Reports() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const toast = useToast()
+  const isAdminManager = profile?.role === 'administrator' || profile?.role === 'manager'
   const [activeTab, setActiveTab] = useState(REPORT_TABS[0].key)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
@@ -396,6 +397,8 @@ export default function Reports() {
   const [showGoodNewsForm, setShowGoodNewsForm] = useState(false)
   const [goodNewsForm, setGoodNewsForm] = useState(emptyGoodNewsForm)
   const [submittingGoodNews, setSubmittingGoodNews] = useState(false)
+  const [editingGoodNewsId, setEditingGoodNewsId] = useState(null)
+  const [deletingGoodNewsId, setDeletingGoodNewsId] = useState(null)
   const [downloadingFullReport, setDownloadingFullReport] = useState(false)
   const [groupAttendanceReport, setGroupAttendanceReport] = useState({
     sessions: [],
@@ -626,22 +629,66 @@ export default function Reports() {
     e.preventDefault()
     setSubmittingGoodNews(true)
     try {
-      await createGoodNewsStory({
-        title: goodNewsForm.title,
-        story: goodNewsForm.story,
-        client_id: goodNewsForm.client_id || null,
-        program_id: goodNewsForm.program_id || null,
-        story_date: goodNewsForm.story_date,
-        created_by: user?.id,
-      })
-      toast.success('Good news story saved.')
+      if (editingGoodNewsId) {
+        await updateGoodNewsStory(editingGoodNewsId, {
+          title: goodNewsForm.title,
+          story: goodNewsForm.story,
+          client_id: goodNewsForm.client_id || null,
+          program_id: goodNewsForm.program_id || null,
+          story_date: goodNewsForm.story_date,
+        })
+        toast.success('Good news story updated.')
+      } else {
+        await createGoodNewsStory({
+          title: goodNewsForm.title,
+          story: goodNewsForm.story,
+          client_id: goodNewsForm.client_id || null,
+          program_id: goodNewsForm.program_id || null,
+          story_date: goodNewsForm.story_date,
+          created_by: user?.id,
+        })
+        toast.success('Good news story saved.')
+      }
       setGoodNewsForm(emptyGoodNewsForm)
       setShowGoodNewsForm(false)
+      setEditingGoodNewsId(null)
       refetchGoodNewsStories()
     } catch (err) {
       toast.error(err.message)
     } finally {
       setSubmittingGoodNews(false)
+    }
+  }
+
+  const handleEditGoodNewsStory = (story) => {
+    setGoodNewsForm({
+      title: story.title,
+      story: story.story,
+      client_id: story.client_id || '',
+      program_id: story.program_id || '',
+      story_date: story.story_date,
+    })
+    setEditingGoodNewsId(story.id)
+    setShowGoodNewsForm(true)
+  }
+
+  const handleCancelGoodNewsForm = () => {
+    setShowGoodNewsForm(false)
+    setEditingGoodNewsId(null)
+    setGoodNewsForm(emptyGoodNewsForm)
+  }
+
+  const handleDeleteGoodNewsStory = async (story) => {
+    if (!window.confirm(`Delete the good news story "${story.title}"? This cannot be undone.`)) return
+    setDeletingGoodNewsId(story.id)
+    try {
+      await deleteGoodNewsStory(story.id)
+      toast.success('Good news story deleted.')
+      refetchGoodNewsStories()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setDeletingGoodNewsId(null)
     }
   }
 
@@ -1321,7 +1368,7 @@ export default function Reports() {
                 </div>
                 <div style={{ display: 'flex', gap: 10 }}>
                   <ExportButton rows={goodNewsStoriesToRows(goodNewsStories)} filename="good-news-stories.csv" />
-                  <Button onClick={() => setShowGoodNewsForm((v) => !v)}>
+                  <Button onClick={() => (showGoodNewsForm ? handleCancelGoodNewsForm() : setShowGoodNewsForm(true))}>
                     <Plus strokeWidth={2} />
                     Add Story
                   </Button>
@@ -1330,6 +1377,11 @@ export default function Reports() {
 
               {showGoodNewsForm && (
                 <Card style={{ marginBottom: 18 }}>
+                  {editingGoodNewsId && (
+                    <div className="section-subtitle" style={{ marginBottom: 14, fontWeight: 700, color: 'var(--text)' }}>
+                      Edit Story
+                    </div>
+                  )}
                   <form onSubmit={handleAddGoodNewsStory}>
                     <div className="form-grid">
                       <div>
@@ -1409,11 +1461,11 @@ export default function Reports() {
                       />
                     </div>
                     <div className="form-actions">
-                      <Button type="button" variant="secondary" onClick={() => setShowGoodNewsForm(false)}>
+                      <Button type="button" variant="secondary" onClick={handleCancelGoodNewsForm}>
                         Cancel
                       </Button>
                       <Button type="submit" disabled={submittingGoodNews}>
-                        {submittingGoodNews ? 'Saving...' : 'Save Story'}
+                        {submittingGoodNews ? 'Saving...' : editingGoodNewsId ? 'Save Changes' : 'Save Story'}
                       </Button>
                     </div>
                   </form>
@@ -1442,6 +1494,24 @@ export default function Reports() {
                           <span>{s.story_date}</span>
                         </div>
                         <div className="note-item-text">{s.story}</div>
+                        {isAdminManager && (
+                          <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+                            <button type="button" className="link-button" onClick={() => handleEditGoodNewsStory(s)}>
+                              <Pencil strokeWidth={2} style={{ width: 13, height: 13, marginRight: 4, verticalAlign: 'text-bottom' }} />
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              className="link-button"
+                              style={{ color: '#f87171' }}
+                              onClick={() => handleDeleteGoodNewsStory(s)}
+                              disabled={deletingGoodNewsId === s.id}
+                            >
+                              <Trash2 strokeWidth={2} style={{ width: 13, height: 13, marginRight: 4, verticalAlign: 'text-bottom' }} />
+                              {deletingGoodNewsId === s.id ? 'Deleting...' : 'Delete'}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

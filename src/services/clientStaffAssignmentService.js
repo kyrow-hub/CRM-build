@@ -26,6 +26,20 @@ export async function addStaffAssignment(input) {
   return data
 }
 
+export async function updateStaffAssignment(id, input) {
+  const { data, error } = await supabase
+    .from('client_staff_assignments')
+    .update(input)
+    .eq('id', id)
+    .select(ASSIGNMENT_COLUMNS)
+    .single()
+  if (error) {
+    if (error.code === '23505') throw new Error('That staff member already has this role on this client.')
+    throw error
+  }
+  return data
+}
+
 export async function removeStaffAssignment(id) {
   const { error } = await supabase.from('client_staff_assignments').delete().eq('id', id)
   if (error) throw error

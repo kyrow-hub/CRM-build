@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Search, Share2, Plus, Check, X, Link2, Folder } from 'lucide-react'
+import { Search, Share2, Plus, Check, X, Link2, Folder, Pencil, Trash2 } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import Button from '../components/ui/Button.jsx'
 import StatusPill from '../components/ui/StatusPill.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
 import ReferralDocumentsPanel from '../components/referral/ReferralDocumentsPanel.jsx'
 import { useReferrals } from '../hooks/useReferrals.js'
-import { createReferral, updateReferral } from '../services/referralService.js'
+import { createReferral, updateReferral, deleteReferral } from '../services/referralService.js'
 import { syncReferralDocumentsClient } from '../services/documentService.js'
 import { listClients } from '../services/clientService.js'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -30,13 +30,57 @@ const emptyForm = {
   notes: '',
 }
 
-function ReferralRow({ referral, clients, onUpdated }) {
+function ReferralRow({ referral, clients, canManage, onUpdated, onDeleted }) {
   const toast = useToast()
   const [mode, setMode] = useState(null)
   const [clientId, setClientId] = useState('')
   const [declineReason, setDeclineReason] = useState('')
+  const [editForm, setEditForm] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const name = [referral.first_name, referral.last_name].filter(Boolean).join(' ')
+
+  const openEdit = () => {
+    setEditForm({
+      first_name: referral.first_name || '',
+      last_name: referral.last_name || '',
+      phone: referral.phone || '',
+      email: referral.email || '',
+      referral_source: referral.referral_source || '',
+      referred_by: referral.referred_by || '',
+      notes: referral.notes || '',
+    })
+    setMode(mode === 'edit' ? null : 'edit')
+  }
+
+  const handleSaveEdit = async (e) => {
+    e.preventDefault()
+    setSubmitting(true)
+    try {
+      await updateReferral(referral.id, editForm)
+      toast.success('Referral updated.')
+      setMode(null)
+      onUpdated()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Delete the referral for ${name}? This cannot be undone.`)) return
+    setDeleting(true)
+    try {
+      await deleteReferral(referral.id)
+      toast.success('Referral deleted.')
+      onDeleted()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   const handleAccept = async () => {
     setSubmitting(true)
@@ -128,6 +172,16 @@ function ReferralRow({ referral, clients, onUpdated }) {
             <Folder strokeWidth={2} />
             Documents
           </Button>
+          {canManage && (
+            <>
+              <button type="button" className="icon-button" title="Edit" onClick={openEdit}>
+                <Pencil strokeWidth={2} />
+              </button>
+              <button type="button" className="icon-button" title="Delete" disabled={deleting} onClick={handleDelete}>
+                <Trash2 strokeWidth={2} />
+              </button>
+            </>
+          )}
         </div>
       </div>
       <div className="data-cell-muted" style={{ marginTop: -4 }}>
@@ -137,6 +191,102 @@ function ReferralRow({ referral, clients, onUpdated }) {
         <div style={{ marginTop: 4 }}>
           <ReferralDocumentsPanel referralId={referral.id} clientId={referral.client_id} />
         </div>
+      )}
+      {mode === 'edit' && editForm && (
+        <form onSubmit={handleSaveEdit} style={{ marginTop: 4 }}>
+          <div className="form-grid">
+            <div>
+              <label className="form-label" htmlFor={`edit-first-${referral.id}`}>
+                First Name
+              </label>
+              <input
+                id={`edit-first-${referral.id}`}
+                className="input"
+                value={editForm.first_name}
+                onChange={(e) => setEditForm((f) => ({ ...f, first_name: e.target.value }))}
+                required
+              />
+            </div>
+            <div>
+              <label className="form-label" htmlFor={`edit-last-${referral.id}`}>
+                Last Name
+              </label>
+              <input
+                id={`edit-last-${referral.id}`}
+                className="input"
+                value={editForm.last_name}
+                onChange={(e) => setEditForm((f) => ({ ...f, last_name: e.target.value }))}
+                required
+              />
+            </div>
+            <div>
+              <label className="form-label" htmlFor={`edit-phone-${referral.id}`}>
+                Phone
+              </label>
+              <input
+                id={`edit-phone-${referral.id}`}
+                type="tel"
+                className="input"
+                value={editForm.phone}
+                onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="form-label" htmlFor={`edit-email-${referral.id}`}>
+                Email
+              </label>
+              <input
+                id={`edit-email-${referral.id}`}
+                type="email"
+                className="input"
+                value={editForm.email}
+                onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="form-label" htmlFor={`edit-source-${referral.id}`}>
+                Referral Source
+              </label>
+              <input
+                id={`edit-source-${referral.id}`}
+                className="input"
+                value={editForm.referral_source}
+                onChange={(e) => setEditForm((f) => ({ ...f, referral_source: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="form-label" htmlFor={`edit-referredby-${referral.id}`}>
+                Referred By
+              </label>
+              <input
+                id={`edit-referredby-${referral.id}`}
+                className="input"
+                value={editForm.referred_by}
+                onChange={(e) => setEditForm((f) => ({ ...f, referred_by: e.target.value }))}
+              />
+            </div>
+          </div>
+          <div style={{ marginTop: 14 }}>
+            <label className="form-label" htmlFor={`edit-notes-${referral.id}`}>
+              Notes
+            </label>
+            <textarea
+              id={`edit-notes-${referral.id}`}
+              className="input"
+              rows={2}
+              value={editForm.notes}
+              onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
+            />
+          </div>
+          <div className="form-actions">
+            <Button type="button" variant="secondary" onClick={() => setMode(null)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </div>
+        </form>
       )}
       {mode === 'link' && (
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -186,7 +336,8 @@ function ReferralRow({ referral, clients, onUpdated }) {
 }
 
 export default function Referrals() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
+  const isAdminManager = profile?.role === 'administrator' || profile?.role === 'manager'
   const toast = useToast()
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
@@ -373,7 +524,7 @@ export default function Referrals() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {referrals.map((r) => (
-              <ReferralRow key={r.id} referral={r} clients={clients} onUpdated={refetch} />
+              <ReferralRow key={r.id} referral={r} clients={clients} canManage={isAdminManager} onUpdated={refetch} onDeleted={refetch} />
             ))}
           </div>
         )}

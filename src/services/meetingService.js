@@ -39,3 +39,16 @@ export async function updateMeetingStatus(id, status) {
   if (error) throw error
   return data
 }
+
+export async function updateMeeting(id, input) {
+  if (!input.title?.trim()) throw new Error('Meeting title is required.')
+  if (!input.meeting_date) throw new Error('Meeting date is required.')
+  const { data, error } = await supabase.from('meetings').update(input).eq('id', id).select(MEETING_COLUMNS).single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteMeeting(id) {
+  const { error } = await supabase.from('meetings').delete().eq('id', id)
+  if (error) throw error
+}
