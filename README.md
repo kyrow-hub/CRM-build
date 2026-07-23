@@ -208,6 +208,28 @@ Open the printed local URL. You'll land on the login screen if you're not signed
 npm run build
 ```
 
+## Deploying (Vercel)
+
+This is a static Vite app - it builds to a `dist/` folder that any static host can serve.
+`vercel.json` is already set up with the SPA rewrite React Router needs (so refreshing on
+a deep link like `/clients/123` doesn't 404).
+
+1. Push this repo to GitHub if it isn't already.
+2. In [Vercel](https://vercel.com), **Add New → Project** and import the repo. It
+   auto-detects the Vite framework preset (build command `vite build`, output `dist`) -
+   no config needed there.
+3. Add the two environment variables from **Environment variables** above
+   (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) under the project's **Settings →
+   Environment Variables**, then deploy.
+4. Once live, add the deployed URL to Supabase's **Authentication → URL Configuration →
+   Redirect URLs** (needed for the password-reset flow - see above) alongside
+   `/reset-password`.
+
+Any other static host (Netlify, Cloudflare Pages, etc.) works the same way - same build
+command/output directory, same two environment variables, and the same "rewrite
+everything to index.html" rule for client-side routing (Netlify: add a `_redirects` file
+with `/* /index.html 200`; Cloudflare Pages: this is the default behaviour for SPAs).
+
 ## Project structure
 
 ```
