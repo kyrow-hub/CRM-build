@@ -669,6 +669,12 @@ button {
   color: #38bdf8;
 }
 
+.avatar--emerald,
+.stat-card-icon--emerald {
+  background: rgba(52, 211, 153, 0.14);
+  color: #34d399;
+}
+
 .clients-cell-muted {
   color: var(--muted);
   font-size: 13px;

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { FileText, Share2, TrendingUp, Award, Activity, PackageCheck, Users, Download, Gauge, BarChart3, Tent, StickyNote, Sparkles, Plus, ClipboardList, ClipboardCheck, CalendarClock, FileSpreadsheet, ShieldCheck } from 'lucide-react'
+import { FileText, Share2, TrendingUp, Award, Activity, PackageCheck, Users, Download, Gauge, BarChart3, Tent, StickyNote, Sparkles, Plus, ClipboardList, ClipboardCheck, CalendarClock, FileSpreadsheet, ShieldCheck, AlertOctagon } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import Button from '../components/ui/Button.jsx'
 import StatCard from '../components/ui/StatCard.jsx'
@@ -22,6 +22,7 @@ import { getGroupAttendanceReport } from '../services/groupAttendanceReportServi
 import { listAllAssessments } from '../services/assessmentService.js'
 import { SEWB_DOMAINS } from '../data/assessmentOptions.js'
 import { getComplianceSummary } from '../services/complianceService.js'
+import { listIncidents } from '../services/incidentService.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { initials } from '../utils/initials.js'
@@ -66,10 +67,11 @@ const REPORT_TABS = [
   { key: 'group-attendance', label: 'Group Attendance', icon: ClipboardList, tone: 'amber' },
   { key: 'assessments', label: 'Assessments', icon: ClipboardCheck, tone: 'fuchsia' },
   { key: 'compliance', label: 'Compliance', icon: ShieldCheck, tone: 'sky' },
+  { key: 'incidents', label: 'Incidents', icon: AlertOctagon, tone: 'emerald' },
   { key: 'full-report', label: 'Full Service Report', icon: FileSpreadsheet, tone: 'rose' },
 ]
 
-const FULL_REPORT_SHEET_COUNT = 14
+const FULL_REPORT_SHEET_COUNT = 15
 
 const ATTENDANCE_STATUS_TONE = {
   Present: 'success',
@@ -300,6 +302,21 @@ function complianceToRows(perClient) {
   }))
 }
 
+function incidentsToRows(incidents) {
+  return incidents.map((i) => ({
+    Client: clientName(i.client),
+    Type: i.incident_type,
+    Severity: i.severity,
+    Status: i.status,
+    Date: i.incident_date,
+    Location: i.location || '',
+    'Manager Reviewed': i.manager_reviewed ? 'Yes' : 'No',
+    'Follow-up Completed': i.follow_up_completed ? 'Yes' : 'No',
+    Outcome: i.outcome || '',
+    Confidential: i.confidential ? 'Yes' : 'No',
+  }))
+}
+
 function ExportButton({ rows, filename }) {
   return (
     <Button
@@ -390,6 +407,7 @@ export default function Reports() {
   const [assessments, setAssessments] = useState([])
   const [reviewsDue, setReviewsDue] = useState([])
   const [complianceSummary, setComplianceSummary] = useState({ perClient: [], totals: {} })
+  const [incidents, setIncidents] = useState([])
 
   const refetchGoodNewsStories = () => {
     listGoodNewsStories()
@@ -433,6 +451,7 @@ export default function Reports() {
       listAllAssessments(),
       listClientsWithReviewDue(),
       getComplianceSummary(),
+      listIncidents(),
     ])
       .then(
         ([
@@ -460,6 +479,7 @@ export default function Reports() {
           allAssessments,
           reviewsDueResult,
           complianceSummaryResult,
+          allIncidents,
         ]) => {
           setNotesCount(nCount)
           setGoalsCount(gCount)
@@ -485,6 +505,7 @@ export default function Reports() {
           setAssessments(allAssessments)
           setReviewsDue(reviewsDueResult)
           setComplianceSummary(complianceSummaryResult)
+          setIncidents(allIncidents)
         },
       )
       .catch((err) => setLoadError(err.message))
@@ -510,6 +531,7 @@ export default function Reports() {
     'group-attendance': { label: 'Group Sessions Attended', value: groupAttendanceReport.totalSessions },
     assessments: { label: 'Assessments Recorded', value: assessments.length },
     compliance: { label: 'Critical Compliance Alerts', value: complianceSummary.totals.criticalAlerts ?? 0 },
+    incidents: { label: 'Open Incidents', value: incidents.filter((i) => i.status !== 'Closed').length },
     'full-report': { label: 'Report Sections', value: FULL_REPORT_SHEET_COUNT },
   }
 
@@ -640,6 +662,7 @@ export default function Reports() {
         { name: 'Good News Stories', rows: goodNewsStoriesToRows(goodNewsStories) },
         { name: 'Assessments', rows: assessmentsToRows(assessments) },
         { name: 'Compliance', rows: complianceToRows(complianceSummary.perClient) },
+        { name: 'Incidents', rows: incidentsToRows(incidents) },
         { name: 'KPI Summary', rows: kpiToRows(kpiData) },
       ])
       toast.success('Full service report downloaded.')
@@ -671,9 +694,13 @@ export default function Reports() {
                     ? stats[key].value === 0
                       ? 'No critical alerts'
                       : 'Needs attention'
-                    : stats[key].value === 0
-                      ? 'No data recorded yet'
-                      : 'Across all clients'
+                    : key === 'incidents'
+                      ? stats[key].value === 0
+                        ? 'All incidents closed'
+                        : 'Awaiting review, follow-up, or outcome'
+                      : stats[key].value === 0
+                        ? 'No data recorded yet'
+                        : 'Across all clients'
               }
               icon={icon}
               tone={tone}
@@ -1769,6 +1796,89 @@ export default function Reports() {
                 )}
               </Card>
             </>
+          ) : activeTab === 'incidents' ? (
+            <>
+              <ExportButton rows={incidentsToRows(incidents)} filename="incidents-report.csv" />
+              <div className="details-grid" style={{ marginBottom: 18 }}>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Total Incidents
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : incidents.length}
+                  </div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Open
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : incidents.filter((i) => i.status === 'Open').length}
+                  </div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Under Review
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : incidents.filter((i) => i.status === 'Under Review').length}
+                  </div>
+                </Card>
+                <Card>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Closed
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : incidents.filter((i) => i.status === 'Closed').length}
+                  </div>
+                </Card>
+                <Card style={incidents.some((i) => i.severity === 'Critical') ? { borderColor: 'rgba(248, 113, 113, 0.4)' } : undefined}>
+                  <div className="section-subtitle" style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text)' }}>
+                    Critical Severity
+                  </div>
+                  <div className="stat-card-value" style={{ fontSize: 24 }}>
+                    {loading ? '—' : incidents.filter((i) => i.severity === 'Critical').length}
+                  </div>
+                </Card>
+              </div>
+
+              <div className="details-grid" style={{ marginBottom: 18 }}>
+                <BreakdownCard title="By Type" entries={countBy(incidents, (i) => i.incident_type)} />
+                <BreakdownCard title="By Severity" entries={countBy(incidents, (i) => i.severity)} />
+                <BreakdownCard title="By Status" entries={countBy(incidents, (i) => i.status)} />
+              </div>
+
+              <Card style={!loading && incidents.length === 0 ? undefined : { padding: 0 }}>
+                {loading ? (
+                  <EmptyState icon={AlertOctagon} title="Loading..." text="Fetching incidents." />
+                ) : incidents.length === 0 ? (
+                  <EmptyState icon={AlertOctagon} title="No incidents recorded" text="Incidents logged across the caseload will be summarized here." />
+                ) : (
+                  <div className="data-table">
+                    <div className="data-row assessments-row data-row--head">
+                      <span>Client</span>
+                      <span>Type</span>
+                      <span>Severity</span>
+                      <span>Status</span>
+                      <span>Date</span>
+                      <span>Checklist</span>
+                    </div>
+                    {incidents.map((i) => (
+                      <div className="data-row assessments-row" key={i.id}>
+                        <span>{i.client ? clientName(i.client) : '—'}</span>
+                        <span className="data-cell-muted">{i.incident_type}</span>
+                        <span className="data-cell-muted">{i.severity}</span>
+                        <span className="data-cell-muted">{i.status}</span>
+                        <span className="data-cell-muted">{i.incident_date}</span>
+                        <span className="data-cell-muted">
+                          {[i.manager_reviewed && 'Reviewed', i.follow_up_completed && 'Followed up', i.outcome && 'Outcome'].filter(Boolean).join(', ') || '—'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </>
           ) : activeTab === 'full-report' ? (
             <Card>
               <div className="section-title" style={{ marginBottom: 6 }}>
@@ -1793,6 +1903,7 @@ export default function Reports() {
                   ['Good News Stories', goodNewsStories.length],
                   ['Assessments', assessments.length],
                   ['Compliance', complianceSummary.perClient.length],
+                  ['Incidents', incidents.length],
                   ['KPI Summary', 8],
                 ].map(([label, count]) => (
                   <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5 }}>

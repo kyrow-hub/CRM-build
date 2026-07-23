@@ -15,6 +15,7 @@ import { listAttendanceRecordsForClient } from '../../services/attendanceService
 import { listReferralsForClient } from '../../services/referralService.js'
 import { listClientRelationships } from '../../services/relationshipService.js'
 import { listClientFollowUps } from '../../services/followUpService.js'
+import { listIncidentsForClient } from '../../services/incidentService.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 
@@ -45,9 +46,25 @@ export default function ClientCompliancePanel({ client, clientName }) {
       listReferralsForClient(client.id),
       listClientRelationships(client.id),
       listClientFollowUps(client.id),
+      listIncidentsForClient(client.id),
     ])
-      .then(([documents, assessments, goals, servicePlanItems, notes, activities, attendance, referrals, relationships, followUpsResult]) => {
-        setCompliance(computeClientCompliance({ client, documents, assessments, goals, servicePlanItems, notes, activities, attendance, referrals, relationships, followUps: followUpsResult }))
+      .then(([documents, assessments, goals, servicePlanItems, notes, activities, attendance, referrals, relationships, followUpsResult, incidents]) => {
+        setCompliance(
+          computeClientCompliance({
+            client,
+            documents,
+            assessments,
+            goals,
+            servicePlanItems,
+            notes,
+            activities,
+            attendance,
+            referrals,
+            relationships,
+            followUps: followUpsResult,
+            incidents,
+          }),
+        )
         setFollowUps(followUpsResult)
       })
       .catch((err) => setError(err.message))

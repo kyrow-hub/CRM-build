@@ -183,6 +183,6 @@ Case Notes, Referrals, Goals & Outcomes, Outcomes, Staff Register, Programs, Fol
 Documents), Goals & Outcomes, Case Activities, Outcomes, Referrals, Attendance
 Register/Group Sessions, Reports (including the KPI, Program Performance, Overnight
 Camp, Group Note, Group Attendance, Good News Stories, and Full Service Report tabs),
-Leads, Partners, Meetings, Email (sending via Resend and receiving via an inbound
-webhook - see above), and Settings (profile editing and team/role management). See
-`DEVELOPMENT_AUDIT.md` for the current page-by-page and tab-by-tab breakdown.
+Leads, Partners, Meetings, Incidents, Email (sending via Resend and receiving via an
+inbound webhook - see above), and Settings (profile editing and team/role management).
+See `DEVELOPMENT_AUDIT.md` for the current page-by-page and tab-by-tab breakdown.

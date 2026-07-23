@@ -12,6 +12,7 @@ import {
   Users,
   ClipboardCheck,
   ShieldCheck,
+  AlertOctagon,
 } from 'lucide-react'
 
 export const CLIENT_TABS = [
@@ -91,6 +92,13 @@ export const CLIENT_TABS = [
     icon: CalendarClock,
     emptyTitle: 'No follow-ups scheduled',
     emptyText: 'Upcoming and completed follow-ups will be tracked here.',
+  },
+  {
+    key: 'incidents',
+    label: 'Incidents',
+    icon: AlertOctagon,
+    emptyTitle: 'No incidents recorded',
+    emptyText: 'Incidents involving this client will appear here.',
   },
   {
     key: 'documents',

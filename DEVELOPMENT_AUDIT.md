@@ -16,14 +16,15 @@ gated by Supabase Auth plus role-based RLS policies (see `supabase/migrations/`)
 | Page | Backing | Notes |
 |---|---|---|
 | Login | Supabase Auth | Email/password sign in; unauthenticated users are redirected here by `ProtectedRoute`. |
-| Dashboard | `clients`, `leads`, `referrals`, `meetings`, `client_notes`, `case_activities`, `client_outcomes`, `good_news_stories` | Active Clients / Total Leads / Referrals This Week / Meetings This Week / Reviews Overdue / Compliance Alerts stat cards, plus a real recent-activity feed aggregated across several tables. |
+| Dashboard | `clients`, `leads`, `referrals`, `meetings`, `client_notes`, `case_activities`, `client_outcomes`, `good_news_stories` | Active Clients / Total Leads / Referrals This Week / Meetings This Week / Reviews Overdue / Compliance Alerts / Open Incidents stat cards, plus a real recent-activity feed aggregated across several tables. |
 | Leads | `leads` | Full CRUD, search, filtering. |
 | Referrals | `referrals`, `client_documents` | Accept/decline, link/re-link to an existing client at any time, and attach documents before a client record even exists - linking a referral automatically moves its documents onto that client's Documents tab. |
 | Clients (list) | `clients` | Full CRUD, search, status filtering, archive. |
 | Client Detail | `clients` + tab-specific tables (below) | Header/details editable; each tab is its own panel. |
 | Partners / Partner Detail | `partners` | Full CRUD, CSV export. |
 | Attendance Register | `programs`, `program_sessions`, `attendance`, `client_notes`, `client_documents` | Group session creation (including overnight-camp flag), roster attendance marking, a Notes tab that writes into `client_notes` with a category, and a Risk Assessments tab: externally-created risk assessments are uploaded as documents against a program (due every 365 days) or a specific camp session (required for every camp), reusing the same document infrastructure as client/referral documents. |
-| Reports | See "Reports tabs" below | 15 tabs, all reading live data; CSV/XLSX export on every tab. |
+| Incidents | `incidents` | Organisation-wide incident register (compliance spec Section 8): report an incident (type, severity, description, optionally linked to a client), then work it through Manager Review → Follow-up → Outcome. The Close action is disabled until all three are complete - a genuine hard gate, not a warn-and-override like the client Archive flow, since there's no legitimate reason to close an incident early. Confidentiality-aware. |
+| Reports | See "Reports tabs" below | 16 tabs, all reading live data; CSV/XLSX export on every tab. |
 | Meetings | `meetings` | Full CRUD. |
 | Email | `client_emails` | Sending via the `send-email` Edge Function (Resend); receiving via the `receive-email` Edge Function (Resend inbound webhook, Svix-signature verified). |
 | Settings | `profiles` | Own-profile editing; administrators/managers can view and change other users' roles and active status via Team Management. |
@@ -45,6 +46,7 @@ gated by Supabase Auth plus role-based RLS policies (see `supabase/migrations/`)
 | Follow Ups | `client_follow_ups` | Pending/Completed/Cancelled workflow with overdue detection. |
 | Documents | `client_documents` + `client-documents` Storage bucket | Upload/download/delete with confidentiality-aware RLS mirrored at the storage layer. Each upload is tagged with a `document_type` (Consent Form, Privacy Consent, Media Consent, Transport Consent, Camp Consent, Medical Information, Referral Document, Other), which the Compliance tab checks against. Includes documents uploaded from the Referrals page before this client's record existed. |
 | Compliance | derived from most other client tables (see below) | Automated 🟢/🟡/🔴 status, 0-100% score, an alert panel, and a section-by-section checklist, computed client-side (no compliance data is stored). A "Generate Tasks" button turns failing critical checks into `client_follow_ups` tasks assigned to the client's worker (skips anything that already has a matching pending follow-up). See "Compliance engine" below for exactly what's covered. |
+| Incidents | `incidents` | Incidents involving this client, same Manager Review → Follow-up → Outcome workflow as the top-level Incidents page (shares the same `IncidentRow` component), scoped to `client_id`. |
 
 ## Reports tabs
 
@@ -54,22 +56,26 @@ Report, Group Note Report, Good News Stories, Group Attendance, Assessments (ass
 type/risk/progress/presenting issues/protective factors breakdowns, SEWB domain averages,
 and a Reviews Due list of clients with an overdue or upcoming review), Compliance (per-client
 score/status table sorted worst-first, and Files Needing Attention counts - Missing Intake,
-Missing Consent, Reviews Overdue, No Service in 30 Days, Missing Exit Assessment), and Full
-Service Report (one combined multi-sheet spreadsheet across all of the above). All are
-client-side aggregations over existing tables except Full Service Report, which reuses
-the already-fetched data from the other tabs.
+Missing Consent, Reviews Overdue, No Service in 30 Days, Missing Exit Assessment), Incidents
+(total/open/under review/closed counts, type/severity/status breakdowns, and a full list with
+each incident's checklist progress), and Full Service Report (one combined multi-sheet
+spreadsheet across all of the above). All are client-side aggregations over existing tables
+except Full Service Report, which reuses the already-fetched data from the other tabs.
 
 ## Compliance engine
 
 `src/services/complianceService.js` computes a client's compliance status entirely from
 existing tables - there's no separate "compliance" table, so nothing can drift out of sync
-with the real records. It's a direct implementation of the compliance spec's Sections 1-7
-and 9, with the following deliberate scope boundaries:
+with the real records. It's a direct implementation of the compliance spec's Sections 1-9,
+with the following deliberate scope boundaries:
 
-- **Section 8 (Incident Management) is not implemented.** There's no incidents
-  table/workflow anywhere in the app yet, so there's nothing for the engine to check. This
-  would need its own migration, service, and UI (report, manager-review workflow, "can't
-  close until resolved") as a separate piece of work.
+- **Section 8 (Incident Management)**: only scored if the client has at least one incident
+  (`incidents` table, `client_id` set). All three of "reviewed by a manager", "follow-up
+  completed", and "outcome recorded" must be true across every incident linked to the
+  client for this section to pass - matching the app-level rule that an individual incident
+  can't be closed until the same three things are done (see the Incidents page/tab, which
+  enforces that as a hard block, not a soft warning). Having an open incident isn't itself a
+  compliance failure; an incident that's stalled on review/follow-up/outcome is.
 - **Reviews (Section 4)** only tracks the single 90-day review cycle already built
   (`clients.next_review_date`, set from the Assessments tab). Risk Review, Goal Review, and
   Support Plan Review share that same date rather than being tracked as three independent

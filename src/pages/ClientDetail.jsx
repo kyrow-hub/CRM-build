@@ -18,6 +18,7 @@ import ClientStaffRegisterPanel from '../components/client/ClientStaffRegisterPa
 import ClientFollowUpsPanel from '../components/client/ClientFollowUpsPanel.jsx'
 import ClientAssessmentsPanel from '../components/client/ClientAssessmentsPanel.jsx'
 import ClientCompliancePanel from '../components/client/ClientCompliancePanel.jsx'
+import ClientIncidentsPanel from '../components/client/ClientIncidentsPanel.jsx'
 import { getClientById, updateClient, archiveClient, listAssignableWorkers } from '../services/clientService.js'
 import { getExitReadiness } from '../services/complianceService.js'
 import { useToast } from '../context/ToastContext.jsx'
@@ -268,6 +269,8 @@ export default function ClientDetail() {
             <OutcomesPanel key={client.id} clientId={client.id} clientName={fullName} />
           ) : activeTab === 'programs' ? (
             <ClientProgramsPanel key={client.id} clientId={client.id} clientName={fullName} />
+          ) : activeTab === 'incidents' ? (
+            <ClientIncidentsPanel key={client.id} clientId={client.id} clientName={fullName} />
           ) : activeTab === 'documents' ? (
             <ClientDocumentsPanel key={client.id} clientId={client.id} clientName={fullName} />
           ) : activeTab === 'compliance' ? (

@@ -9,6 +9,7 @@ import { listAllAttendanceForCompliance } from './attendanceService.js'
 import { listReferrals, listReferralsForClient } from './referralService.js'
 import { listAllRelationships } from './relationshipService.js'
 import { listAllFollowUps, createFollowUp } from './followUpService.js'
+import { listAllIncidents } from './incidentService.js'
 import { CORE_MANDATORY_DOCUMENT_TYPES } from '../data/documentTypes.js'
 
 const GUARDIAN_RELATIONSHIP_TYPES = ['Mother', 'Father', 'Guardian', 'Grandmother', 'Grandfather', 'Foster Carer']
@@ -76,6 +77,7 @@ export function computeClientCompliance({
   referrals = [],
   relationships = [],
   followUps = [],
+  incidents = [],
 }) {
   const today = todayISO()
   const age = calculateAge(client.date_of_birth)
@@ -254,6 +256,24 @@ export function computeClientCompliance({
     })
   }
 
+  // Section 8: Incident Management - only relevant if the client has any.
+  // A client is never blocked from being compliant just for having an
+  // incident; what matters is whether every incident is being worked
+  // through (reviewed, followed up, resolved), same as the app-level rule
+  // that an incident itself can't be closed until all three are done.
+  if (incidents.length > 0) {
+    sections.push({
+      key: 'incidents',
+      title: 'Incident Management',
+      severity: 'critical',
+      checks: [
+        { key: 'incident_reviewed', label: 'All incidents reviewed by a manager', pass: incidents.every((i) => i.manager_reviewed) },
+        { key: 'incident_follow_up', label: 'All incidents have follow-up completed', pass: incidents.every((i) => i.follow_up_completed) },
+        { key: 'incident_outcome', label: 'All incidents have an outcome recorded', pass: incidents.every((i) => Boolean(i.outcome)) },
+      ],
+    })
+  }
+
   // Section 9: Exit - computed always (so it can gate the Archive action
   // before status actually changes) but only shown/scored once the client
   // is closed/archived.
@@ -369,7 +389,7 @@ function groupBy(items, key) {
 // capped at 50 for Reports display, since compliance needs the true
 // per-client picture, not just the 50 most recent rows system-wide.
 export async function getComplianceSummary() {
-  const [clients, documents, assessments, goals, servicePlanItems, notes, activities, attendance, referrals, relationships, followUps] =
+  const [clients, documents, assessments, goals, servicePlanItems, notes, activities, attendance, referrals, relationships, followUps, incidents] =
     await Promise.all([
       listClientsForCompliance(),
       listAllDocuments(),
@@ -382,6 +402,7 @@ export async function getComplianceSummary() {
       listReferrals(),
       listAllRelationships(),
       listAllFollowUps(),
+      listAllIncidents(),
     ])
 
   const documentsByClient = groupBy(documents, 'client_id')
@@ -394,6 +415,7 @@ export async function getComplianceSummary() {
   const referralsByClient = groupBy(referrals, 'client_id')
   const relationshipsByClient = groupBy(relationships, 'client_id')
   const followUpsByClient = groupBy(followUps, 'client_id')
+  const incidentsByClient = groupBy(incidents, 'client_id')
 
   const perClient = clients.map((client) => ({
     client,
@@ -409,6 +431,7 @@ export async function getComplianceSummary() {
       referrals: referralsByClient[client.id] ?? [],
       relationships: relationshipsByClient[client.id] ?? [],
       followUps: followUpsByClient[client.id] ?? [],
+      incidents: incidentsByClient[client.id] ?? [],
     }),
   }))
 
@@ -421,6 +444,9 @@ export async function getComplianceSummary() {
     reviewsOverdue: activePerClient.filter((p) => p.compliance.reviewStatus === 'overdue').length,
     noServiceIn30Days: activePerClient.filter((p) => p.compliance.inactiveClient).length,
     missingExitAssessment: closedPerClient.filter((p) => !p.compliance.exitChecks.find((c) => c.key === 'exit_assessment').pass).length,
+    incidentsIncomplete: perClient.filter(
+      (p) => p.compliance.checksByKey.incident_reviewed && !(p.compliance.checksByKey.incident_reviewed.pass && p.compliance.checksByKey.incident_follow_up.pass && p.compliance.checksByKey.incident_outcome.pass),
+    ).length,
     criticalAlerts: activePerClient.reduce((sum, p) => sum + p.compliance.alerts.filter((a) => a.tone === 'red').length, 0),
   }
 
