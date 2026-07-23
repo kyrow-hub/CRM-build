@@ -138,16 +138,31 @@ Deno.serve(async (req) => {
       }),
     })
 
-    const smsData = await smsResponse.json().catch(() => null)
+    const rawText = await smsResponse.text()
+    let smsData: Record<string, unknown> | null = null
+    try {
+      smsData = JSON.parse(rawText)
+    } catch {
+      smsData = null
+    }
 
-    if (!smsResponse.ok) {
-      status = 'failed'
-      errorMessage = smsData?.Message ?? smsResponse.statusText ?? 'SMS Everyone rejected the request'
-    } else if (smsData && typeof smsData.Code === 'number' && smsData.Code !== 0) {
-      status = 'failed'
-      errorMessage = smsData.Message ?? `SMS Everyone returned error code ${smsData.Code}`
+    console.log('SMS Everyone response:', smsResponse.status, rawText)
+
+    // Success requires an unambiguous Code === 0 from a parsed JSON body -
+    // anything else (a non-2xx status, an unparseable body, a missing or
+    // non-zero Code) is treated as a failure rather than assumed to be
+    // fine, so a shape mismatch with SMS Everyone's actual API can't
+    // silently look like a successful send. The raw response is included
+    // in the error so it's visible directly on the SMS page without
+    // needing to check the Edge Function logs.
+    if (smsResponse.ok && smsData && typeof smsData.Code === 'number' && smsData.Code === 0) {
+      providerMessageId = smsData.CampaignId != null ? String(smsData.CampaignId) : null
     } else {
-      providerMessageId = smsData?.CampaignId != null ? String(smsData.CampaignId) : null
+      status = 'failed'
+      const messageFromBody = smsData && typeof smsData.Message === 'string' ? smsData.Message : null
+      errorMessage =
+        messageFromBody ??
+        `SMS Everyone did not confirm the send (HTTP ${smsResponse.status}). Raw response: ${rawText.slice(0, 300)}`
     }
   } catch (err) {
     status = 'failed'
