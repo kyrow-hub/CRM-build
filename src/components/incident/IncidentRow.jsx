@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { UserCheck, CheckCircle2, FileText, Lock, RotateCcw } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { UserCheck, CheckCircle2, FileText, Lock, RotateCcw, Upload, Download, Trash2, File, Paperclip } from 'lucide-react'
 import Button from '../ui/Button.jsx'
 import StatusPill from '../ui/StatusPill.jsx'
 import {
@@ -10,6 +10,8 @@ import {
   reopenIncident,
   incidentMissingForClose,
 } from '../../services/incidentService.js'
+import { uploadDocument, getDocumentDownloadUrl, deleteClientDocument } from '../../services/documentService.js'
+import { useIncidentDocuments } from '../../hooks/useIncidentDocuments.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { initials } from '../../utils/initials.js'
@@ -17,6 +19,13 @@ import { avatarTone } from '../../utils/avatarColor.js'
 
 const SEVERITY_TONE = { Low: 'info', Medium: 'warning', High: 'danger', Critical: 'danger' }
 const STATUS_TONE = { Open: 'warning', 'Under Review': 'info', Closed: 'success' }
+
+function formatFileSize(bytes) {
+  if (!bytes) return '—'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
 
 export default function IncidentRow({ incident, canManage, onUpdated, showClient = true }) {
   const { user, profile } = useAuth()
@@ -27,6 +36,9 @@ export default function IncidentRow({ incident, canManage, onUpdated, showClient
   const [followUpNotes, setFollowUpNotes] = useState(incident.follow_up_notes || '')
   const [outcome, setOutcome] = useState(incident.outcome || '')
   const [submitting, setSubmitting] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef(null)
+  const { documents, loading: documentsLoading, refetch: refetchDocuments } = useIncidentDocuments(incident.id)
 
   const isManager = profile?.role === 'administrator' || profile?.role === 'manager'
   const name = incident.client ? [incident.client.first_name, incident.client.last_name].filter(Boolean).join(' ') : null
@@ -35,6 +47,42 @@ export default function IncidentRow({ incident, canManage, onUpdated, showClient
   const canClose = incident.status !== 'Closed' && missing.length === 0
 
   const toggle = (m) => setMode(mode === m ? null : m)
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      await uploadDocument({ incidentId: incident.id, documentType: 'Incident Report', file, confidential: incident.confidential, uploadedBy: user?.id })
+      toast.success('Document uploaded.')
+      refetchDocuments()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const handleDownload = async (doc) => {
+    try {
+      const url = await getDocumentDownloadUrl(doc.file_path)
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } catch (err) {
+      toast.error(err.message)
+    }
+  }
+
+  const handleDeleteDocument = async (doc) => {
+    if (!window.confirm(`Delete "${doc.file_name}"? This cannot be undone.`)) return
+    try {
+      await deleteClientDocument(doc)
+      toast.success('Document deleted.')
+      refetchDocuments()
+    } catch (err) {
+      toast.error(err.message)
+    }
+  }
 
   const handleReview = async () => {
     setSubmitting(true)
@@ -157,6 +205,10 @@ export default function IncidentRow({ incident, canManage, onUpdated, showClient
             <FileText strokeWidth={2} style={{ width: 13, height: 13, marginRight: 4, verticalAlign: 'text-bottom' }} />
             Outcome
           </button>
+          <button type="button" className="link-button" onClick={() => toggle('documents')}>
+            <Paperclip strokeWidth={2} style={{ width: 13, height: 13, marginRight: 4, verticalAlign: 'text-bottom' }} />
+            Documents{documents.length > 0 ? ` (${documents.length})` : ''}
+          </button>
           {incident.status === 'Closed' ? (
             isManager && (
               <button type="button" className="link-button" onClick={handleReopen} disabled={submitting}>
@@ -219,6 +271,42 @@ export default function IncidentRow({ incident, canManage, onUpdated, showClient
           <Button type="button" onClick={handleOutcome} disabled={submitting}>
             {submitting ? 'Saving...' : 'Save'}
           </Button>
+        </div>
+      )}
+      {mode === 'documents' && (
+        <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div>
+            <input ref={fileInputRef} type="file" style={{ display: 'none' }} onChange={handleFileChange} />
+            <Button type="button" variant="secondary" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+              <Upload strokeWidth={2} />
+              {uploading ? 'Uploading...' : 'Upload Document (e.g. scanned hard copy)'}
+            </Button>
+          </div>
+          {documentsLoading ? (
+            <div className="data-cell-muted">Loading documents...</div>
+          ) : documents.length === 0 ? (
+            <div className="data-cell-muted">No documents uploaded for this incident yet.</div>
+          ) : (
+            documents.map((doc) => {
+              const uploaderName = doc.uploader ? [doc.uploader.first_name, doc.uploader.last_name].filter(Boolean).join(' ') || 'Unknown' : 'Unknown'
+              return (
+                <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                  <File strokeWidth={2} style={{ width: 14, height: 14, color: 'var(--muted)', flexShrink: 0 }} />
+                  <span className="data-cell-muted">
+                    {doc.file_name} · {formatFileSize(doc.file_size)} · {uploaderName} · {new Date(doc.created_at).toLocaleDateString()}
+                  </span>
+                  <button type="button" className="link-button" onClick={() => handleDownload(doc)}>
+                    <Download strokeWidth={2} style={{ width: 12, height: 12, marginRight: 3, verticalAlign: 'text-bottom' }} />
+                    Download
+                  </button>
+                  <button type="button" className="link-button" style={{ color: '#f87171' }} onClick={() => handleDeleteDocument(doc)}>
+                    <Trash2 strokeWidth={2} style={{ width: 12, height: 12, marginRight: 3, verticalAlign: 'text-bottom' }} />
+                    Delete
+                  </button>
+                </div>
+              )
+            })
+          )}
         </div>
       )}
     </div>
