@@ -17,6 +17,17 @@ export async function listAllRelationships() {
   return data
 }
 
+// Used by the SMS composer to build a per-client list of texting-eligible
+// contacts (parents/guardians etc.) without a separate round-trip per client.
+export async function listContactableRelationships() {
+  const { data, error } = await supabase
+    .from('client_relationships')
+    .select('id, client_id, relationship_type, full_name, phone, is_primary_contact')
+    .not('phone', 'is', null)
+  if (error) throw error
+  return data
+}
+
 export async function createRelationship(input) {
   if (!input.relationship_type?.trim()) throw new Error('Relationship is required.')
   if (!input.full_name?.trim()) throw new Error('Name is required.')

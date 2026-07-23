@@ -9,6 +9,7 @@ import {
   Calendar,
   ClipboardCheck,
   Mail,
+  MessageSquare,
   BarChart3,
   Settings,
   AlertOctagon,
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { label: 'Attendance', to: '/attendance', icon: ClipboardCheck },
   { label: 'Incidents', to: '/incidents', icon: AlertOctagon },
   { label: 'Email', to: '/email', icon: Mail },
+  { label: 'SMS', to: '/sms', icon: MessageSquare },
   { label: 'Reports', to: '/reports', icon: BarChart3 },
   { label: 'Settings', to: '/settings', icon: Settings },
 ]

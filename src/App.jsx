@@ -14,6 +14,7 @@ import Incidents from './pages/Incidents.jsx'
 import Meetings from './pages/Meetings.jsx'
 import AttendanceRegister from './pages/AttendanceRegister.jsx'
 import Email from './pages/Email.jsx'
+import Sms from './pages/Sms.jsx'
 import Reports from './pages/Reports.jsx'
 import Settings from './pages/Settings.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
@@ -39,6 +40,7 @@ export default function App() {
               <Route path="/meetings" element={<Meetings />} />
               <Route path="/attendance" element={<AttendanceRegister />} />
               <Route path="/email" element={<Email />} />
+              <Route path="/sms" element={<Sms />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/settings" element={<Settings />} />
             </Route>

@@ -27,6 +27,7 @@ gated by Supabase Auth plus role-based RLS policies (see `supabase/migrations/`)
 | Reports | See "Reports tabs" below | 16 tabs, all reading live data; CSV/XLSX export on every tab. |
 | Meetings | `meetings` | Full CRUD. Edit/Delete restricted to admins/managers. |
 | Email | `client_emails` | Sending via the `send-email` Edge Function (Resend); receiving via the `receive-email` Edge Function (Resend inbound webhook, Svix-signature verified). |
+| SMS | `client_sms` | Sending via the `send-sms` Edge Function (Twilio); receiving via the `receive-sms` Edge Function (Twilio inbound webhook, X-Twilio-Signature verified). Recipients can be a client directly or one of their `client_relationships` (parent/guardian/other contact) - anyone with a phone number on file. Supports both individual sends and a bulk send (pick many clients, choose client/primary contact/all contacts/client+primary as the recipient scope, one message goes to everyone matched) sent as a sequence of individual logged messages rather than a single provider-side broadcast. Inbound replies are matched to a client or relationship by normalising phone numbers (strips formatting/country code) since staff enter phone numbers in free-text format. |
 | Settings | `profiles`, Supabase Auth | Own-profile editing and self-service password change (re-authenticates with the current password via Supabase Auth before updating it); administrators/managers can view and change other users' roles and active status via Team Management. |
 
 ## Client Detail tabs

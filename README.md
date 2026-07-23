@@ -140,6 +140,51 @@ Inbound emails from a sender that doesn't match any client's email address are s
 logged (with no client attached) rather than dropped - staff can link them to the right
 client afterwards from the Email page.
 
+## SMS sending and receiving (Twilio)
+
+The SMS page sends and receives real text messages through [Twilio](https://twilio.com)
+via two Supabase Edge Functions. Neither the Twilio Auth Token nor the Supabase
+service-role key ever touch the frontend - both live only in Edge Function secrets.
+Recipients can be a client directly or one of their `client_relationships` (parents,
+guardians, other emergency contacts) - anyone with a phone number on file.
+
+### Sending (send-sms)
+
+1. Create a Twilio account at [twilio.com](https://twilio.com) and buy an SMS-capable
+   number (Console → Phone Numbers). A landline number cannot send/receive SMS - you need
+   a mobile-format virtual number.
+2. Grab your **Account SID** and **Auth Token** from the Twilio Console dashboard.
+3. Install the [Supabase CLI](https://supabase.com/docs/guides/cli) if you don't have it,
+   then link your project: `supabase login` and `supabase link --project-ref your-project-ref`.
+4. Set secrets and deploy:
+   ```bash
+   supabase secrets set TWILIO_ACCOUNT_SID=ACyour_account_sid
+   supabase secrets set TWILIO_AUTH_TOKEN=your_auth_token
+   supabase secrets set TWILIO_FROM_NUMBER=+61your_twilio_number
+   supabase functions deploy send-sms
+   ```
+
+### Receiving (receive-sms)
+
+1. Get your project's **service-role key** from Supabase dashboard → Project Settings →
+   API (this key bypasses all security rules - never put it in the frontend or commit it
+   anywhere).
+2. Set secrets and deploy with JWT verification disabled (Twilio isn't a logged-in CRM
+   user, so there's no Supabase auth token for it to send - authenticity instead comes
+   from the X-Twilio-Signature header, which the function verifies itself):
+   ```bash
+   supabase secrets set SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+   supabase functions deploy receive-sms --no-verify-jwt
+   ```
+3. In the Twilio Console, open your number's configuration and set **A message comes
+   in** to point at your deployed function's URL
+   (`https://your-project-ref.supabase.co/functions/v1/receive-sms`), method `HTTP POST`.
+4. Run the `0028_client_sms.sql` migration (see above) if you haven't already.
+5. Text your Twilio number from a phone and check **SMS** in the CRM. Inbound messages
+   from a number that doesn't match any client's or contact's phone number are still
+   logged (with no client attached) rather than dropped - staff can link them to the
+   right client afterwards from the SMS page.
+
 ## Running locally
 
 ```bash
@@ -184,5 +229,6 @@ Documents), Goals & Outcomes, Case Activities, Outcomes, Referrals, Attendance
 Register/Group Sessions, Reports (including the KPI, Program Performance, Overnight
 Camp, Group Note, Group Attendance, Good News Stories, and Full Service Report tabs),
 Leads, Partners, Meetings, Incidents, Email (sending via Resend and receiving via an
-inbound webhook - see above), and Settings (profile editing and team/role management).
+inbound webhook - see above), SMS (sending/receiving via Twilio - see above), and Settings
+(profile editing, self-service password change/reset, and team/role management).
 See `DEVELOPMENT_AUDIT.md` for the current page-by-page and tab-by-tab breakdown.
