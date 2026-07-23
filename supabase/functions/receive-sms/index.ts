@@ -60,12 +60,19 @@ function firstDefined(payload: Record<string, unknown>, keys: string[]): string 
   return null
 }
 
+// Confirmed against a real inbound payload from SMS Everyone (2026-07-24):
+// { password, username, recipient: "<our number>", reference, originator:
+// "<the end user's number>", message_text }. "originator" is the sender
+// who texted in - "recipient" is our own virtual number - which is the
+// opposite of what the names suggest at first glance. The other entries
+// are kept as fallbacks in case a different message type uses different
+// names.
 const FROM_KEYS = [
-  'Recipient', 'recipient', 'From', 'from', 'Mobile', 'mobile', 'Sender', 'sender',
+  'originator', 'Originator', 'From', 'from', 'Mobile', 'mobile', 'Sender', 'sender',
   'Number', 'number', 'Msisdn', 'msisdn', 'MSISDN', 'MobileNumber', 'mobileNumber',
 ]
-const BODY_KEYS = ['MessageText', 'messageText', 'Message', 'message', 'Text', 'text', 'Body', 'body']
-const TO_KEYS = ['Originator', 'originator', 'To', 'to', 'Destination', 'destination']
+const BODY_KEYS = ['message_text', 'MessageText', 'messageText', 'Message', 'message', 'Text', 'text', 'Body', 'body']
+const TO_KEYS = ['recipient', 'Recipient', 'To', 'to', 'Destination', 'destination']
 
 Deno.serve(async (req) => {
   // SMS Everyone's own docs describe inbound delivery as an "HTTP GET
