@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { MessageSquare, MessageSquareText, Plus, Send, Users, ArrowUpRight, ArrowDownLeft } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import Button from '../components/ui/Button.jsx'
@@ -123,6 +124,8 @@ function SmsItem({ sms, clients, onUpdated }) {
 
 export default function Sms() {
   const toast = useToast()
+  const location = useLocation()
+  const navigate = useNavigate()
   const [clients, setClients] = useState([])
   const [relationships, setRelationships] = useState([])
   const [mode, setMode] = useState(null) // null | 'individual' | 'bulk'
@@ -172,6 +175,20 @@ export default function Sms() {
     const client = clients.find((c) => c.id === clientId)
     setIndividualForm({ client_id: clientId, recipient: 'client', to: client?.phone || '', body: individualForm.body })
   }
+
+  // Arriving from a client's profile page ("Send SMS" button) pre-selects
+  // that client once the client list has loaded, then clears the nav state
+  // so refreshing or navigating back here later doesn't reopen the form.
+  const prefillHandled = useRef(false)
+  useEffect(() => {
+    const prefillClientId = location.state?.prefillClientId
+    if (!prefillClientId || prefillHandled.current || clients.length === 0) return
+    prefillHandled.current = true
+    handleIndividualClientChange(prefillClientId)
+    setMode('individual')
+    navigate(location.pathname, { replace: true, state: {} })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clients, location.state])
 
   const handleIndividualRecipientChange = (recipient) => {
     if (recipient === 'client') {

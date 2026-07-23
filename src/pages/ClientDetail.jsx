@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Mail, Phone, MapPin, Cake, Pencil, Archive } from 'lucide-react'
+import { ArrowLeft, Mail, Phone, MapPin, Cake, Pencil, Archive, MessageSquare } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import Button from '../components/ui/Button.jsx'
 import StatusPill from '../components/ui/StatusPill.jsx'
@@ -199,6 +199,10 @@ export default function ClientDetail() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
+              <Button variant="secondary" onClick={() => navigate('/sms', { state: { prefillClientId: client.id } })}>
+                <MessageSquare strokeWidth={2} />
+                Send SMS
+              </Button>
               <Button variant="secondary" onClick={() => setShowEditForm((v) => !v)}>
                 <Pencil strokeWidth={2} />
                 Edit
