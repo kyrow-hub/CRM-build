@@ -17,6 +17,7 @@ import Email from './pages/Email.jsx'
 import Sms from './pages/Sms.jsx'
 import Reports from './pages/Reports.jsx'
 import Settings from './pages/Settings.jsx'
+import AuditLog from './pages/AuditLog.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
 import { ToastProvider } from './context/ToastContext.jsx'
 
@@ -43,6 +44,7 @@ export default function App() {
               <Route path="/sms" element={<Sms />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/audit-log" element={<AuditLog />} />
             </Route>
           </Route>
         </Routes>

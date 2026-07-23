@@ -238,6 +238,9 @@ Documents), Goals & Outcomes, Case Activities, Outcomes, Referrals, Attendance
 Register/Group Sessions, Reports (including the KPI, Program Performance, Overnight
 Camp, Group Note, Group Attendance, Good News Stories, and Full Service Report tabs),
 Leads, Partners, Meetings, Incidents, Email (sending via Resend and receiving via an
-inbound webhook - see above), SMS (sending/receiving via Twilio - see above), and Settings
-(profile editing, self-service password change/reset, and team/role management).
+inbound webhook - see above), SMS (sending/receiving via Twilio - see above), Settings
+(profile editing, self-service password change/reset, and team/role management), and
+Audit Log (administrator/manager-only; a tamper-resistant trigger-based record of every
+change to a client's core data, not just what happens through the app - see
+`DEVELOPMENT_AUDIT.md`).
 See `DEVELOPMENT_AUDIT.md` for the current page-by-page and tab-by-tab breakdown.

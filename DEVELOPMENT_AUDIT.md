@@ -29,6 +29,7 @@ gated by Supabase Auth plus role-based RLS policies (see `supabase/migrations/`)
 | Email | `client_emails` | Sending via the `send-email` Edge Function (Resend); receiving via the `receive-email` Edge Function (Resend inbound webhook, Svix-signature verified). |
 | SMS | `client_sms` | Sending via the `send-sms` Edge Function (Twilio); receiving via the `receive-sms` Edge Function (Twilio inbound webhook, X-Twilio-Signature verified). Recipients can be a client directly or one of their `client_relationships` (parent/guardian/other contact) - anyone with a phone number on file. Supports both individual sends and a bulk send (pick many clients, choose client/primary contact/all contacts/client+primary as the recipient scope, one message goes to everyone matched) sent as a sequence of individual logged messages rather than a single provider-side broadcast. Inbound replies are matched to a client or relationship by normalising phone numbers (strips formatting/country code) since staff enter phone numbers in free-text format. |
 | Settings | `profiles`, Supabase Auth | Own-profile editing and self-service password change (re-authenticates with the current password via Supabase Auth before updating it); administrators/managers can view and change other users' roles and active status via Team Management. |
+| Audit Log | `audit_log` | Administrator/manager-only. Every insert/update/delete on Clients, Family & Contacts, Case Notes, Activities, Outcomes, Documents, Incidents, Assessments, Referrals, and Staff Profiles (role/active changes) is recorded by a database trigger - not application code - so it captures direct SQL access too, not just changes made through the CRM UI. Filterable by table, action, and record ID; each entry can be expanded to see which fields actually changed (for updates) or the full record snapshot (for creates/deletes). See "Audit log design" below for the tamper-resistance details. |
 
 ## Client Detail tabs
 
@@ -116,6 +117,45 @@ currently factored into a client's compliance score or the Reports/Dashboard com
 widgets; incident documents are just attachments and don't affect compliance scoring either
 way (only the review/follow-up/outcome fields do - see Section 8 above).
 
+## Audit log design
+
+`public.audit_log` (migration `0029_audit_log.sql`) is written to entirely by a
+generic `audit_row_change()` database trigger, not by any service function or
+frontend code - the app never inserts into it directly, and can't. A few
+deliberate choices worth knowing about:
+
+- **Tamper-resistant by construction.** The trigger function is `SECURITY
+  DEFINER`, so it runs as the table owner and bypasses RLS regardless of who
+  triggered the underlying change. `audit_log` itself has a `select` policy
+  for administrators/managers only, and no `insert`/`update`/`delete` policy
+  for any role at all - meaning nobody, including an administrator using the
+  normal API, can create, edit, or delete an audit entry directly. The only
+  way a row is ever added is as a side effect of the real event it records.
+- **Database-level, not application-level.** Because it's a trigger, it
+  catches every insert/update/delete on an audited table regardless of how it
+  happened - through the CRM, through the Supabase SQL editor, or via any
+  other direct database access - rather than only changes that happen to go
+  through a particular service function.
+- **Full row snapshots, not just a change summary.** Each entry stores the
+  complete `old_data`/`new_data` row as JSON (whichever applies for that
+  action), so nothing about what a record looked like before/after is lost.
+  The UI computes a readable field-by-field diff for updates client-side from
+  those two snapshots, ignoring `updated_at` (it changes on every edit
+  regardless of what else did, so it's noise rather than signal there).
+- **Scope is the sensitive tables, not everything.** Clients, Family &
+  Contacts, Case Notes, Activities, Outcomes, Documents, Incidents,
+  Assessments, Referrals, and Staff Profiles (update/delete only - role and
+  active-status changes are the sensitive part of that table) are covered.
+  Lower-sensitivity operational tables (meetings, programs, attendance,
+  partners, leads, etc.) are intentionally left out to keep the log focused
+  on what would actually matter in an investigation. `client_emails` and
+  `client_sms` aren't duplicated here either - they're already immutable
+  logs of their own.
+- **Grows without bound for now.** There's no retention/pruning job - every
+  audited change is kept indefinitely. Fine at this app's scale, but worth
+  revisiting with a scheduled cleanup if the table grows large enough to
+  matter.
+
 ## Security posture
 
 - Row Level Security is enabled on every table; policies are defined per migration in
@@ -134,6 +174,9 @@ way (only the review/follow-up/outcome fields do - see Section 8 above).
 - Supabase Storage documents use signed URLs (60s expiry) rather than public URLs, and
   bucket RLS policies join back to `client_documents` to enforce the same confidentiality
   rule at the storage layer.
+- Every change to a client's core records is captured in a tamper-resistant audit trail
+  (see "Audit log design" above), viewable by administrators/managers on the Audit Log
+  page.
 
 ## Project structure
 

@@ -13,6 +13,7 @@ import {
   BarChart3,
   Settings,
   AlertOctagon,
+  ShieldCheck,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -28,6 +29,7 @@ const NAV_ITEMS = [
   { label: 'SMS', to: '/sms', icon: MessageSquare },
   { label: 'Reports', to: '/reports', icon: BarChart3 },
   { label: 'Settings', to: '/settings', icon: Settings },
+  { label: 'Audit Log', to: '/audit-log', icon: ShieldCheck },
 ]
 
 export default function Sidebar() {
