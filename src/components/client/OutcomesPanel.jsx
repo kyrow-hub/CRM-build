@@ -27,10 +27,15 @@ const WILLINGNESS_TONE = {
 // Ties Goals (status + Willingness to Change) and Outcomes together into
 // one at-a-glance summary, since they're tracked on separate tabs but
 // answer the same underlying question: how is this client actually going?
-function ChangeProgressTracker({ clientId, outcomeCount }) {
+function ChangeProgressTracker({ clientId, outcomes }) {
   const { goals, loading } = useClientGoals(clientId)
 
   if (loading || goals.length === 0) return null
+
+  const outcomesByCategory = CATEGORIES.map((cat) => ({
+    category: cat,
+    count: outcomes.filter((o) => o.category === cat).length,
+  })).filter((c) => c.count > 0)
 
   const latestWillingness = goals.find((g) => g.willingness_to_change)?.willingness_to_change
   const total = goals.length
@@ -68,9 +73,24 @@ function ChangeProgressTracker({ clientId, outcomeCount }) {
           <div className="data-cell-muted" style={{ marginBottom: 6 }}>
             Outcomes Recorded
           </div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>{outcomeCount}</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>{outcomes.length}</div>
         </div>
       </div>
+
+      {outcomesByCategory.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div className="data-cell-muted" style={{ marginBottom: 6 }}>
+            Outcomes by Category
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {outcomesByCategory.map(({ category, count }) => (
+              <StatusPill key={category} tone={CATEGORY_TONE[category] ?? 'neutral'}>
+                {category} · {count}
+              </StatusPill>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="data-cell-muted" style={{ marginBottom: 6 }}>
         Goal Progress · {achieved} of {total} achieved ({achievedPct}%)
@@ -309,7 +329,7 @@ export default function OutcomesPanel({ clientId, clientName }) {
 
   return (
     <div>
-      <ChangeProgressTracker clientId={clientId} outcomeCount={outcomes.length} />
+      <ChangeProgressTracker clientId={clientId} outcomes={outcomes} />
 
       <div className="section-head">
         <div>
