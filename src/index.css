@@ -499,6 +499,15 @@ button {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
+/* Browsers render an open <select>'s option list natively with an opaque
+   white background, ignoring .input's translucent background - but the
+   near-white --text color it inherits is then almost invisible against
+   that white popup. Options need their own dark, opaque colors. */
+select.input option {
+  color: #1f2937;
+  background: #ffffff;
+}
+
 /* ------------------------------ Search input ----------------------------- */
 
 .search-input {

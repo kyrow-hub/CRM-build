@@ -5,6 +5,10 @@ import Button from '../ui/Button.jsx'
 const GENDER_OPTIONS = ['Male', 'Female', 'Other', 'Not stated']
 const INDIGENOUS_OPTIONS = ['Aboriginal', 'Torres Strait Islander', 'Both', 'Neither', 'Not stated']
 const STATUS_OPTIONS = ['active', 'inactive', 'pending', 'closed']
+const CLIENT_TYPE_OPTIONS = [
+  { value: 'case_managed', label: 'Case Managed' },
+  { value: 'activity_only', label: 'Activity Only' },
+]
 const RISK_LEVEL_OPTIONS = ['Low', 'Medium', 'High']
 const LIVING_SITUATION_OPTIONS = [
   'Living with both parents',
@@ -22,6 +26,7 @@ const LIVING_SITUATION_OPTIONS = [
 
 const blankValues = {
   client_number: '',
+  client_type: 'case_managed',
   first_name: '',
   middle_name: '',
   last_name: '',
@@ -98,6 +103,18 @@ export default function ClientForm({ initialValues, workers, onSubmit, onCancel,
               value={values.client_number}
               onChange={set('client_number')}
             />
+          </div>
+          <div>
+            <label className="form-label" htmlFor="cf-client_type">
+              Client Type
+            </label>
+            <select id="cf-client_type" className="input" value={values.client_type} onChange={set('client_type')}>
+              {CLIENT_TYPE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="form-label" htmlFor="cf-first_name">

@@ -55,7 +55,7 @@ const REPORT_TABS = [
   { key: 'case-notes', label: 'Case Notes', icon: FileText, tone: 'blue' },
   { key: 'activities', label: 'Case Activities', icon: Activity, tone: 'purple' },
   { key: 'referrals', label: 'Referrals', icon: Share2, tone: 'teal' },
-  { key: 'goals-outcomes', label: 'Goals & Outcomes', icon: TrendingUp, tone: 'green' },
+  { key: 'goals-outcomes', label: 'Goals', icon: TrendingUp, tone: 'green' },
   { key: 'outcomes', label: 'Outcomes', icon: Award, tone: 'pink' },
   { key: 'service-delivery', label: 'Service Delivery', icon: PackageCheck, tone: 'orange' },
   { key: 'demographics', label: 'Demographics', icon: Users, tone: 'yellow' },

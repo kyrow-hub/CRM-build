@@ -9,6 +9,8 @@ import { useAllSms } from '../hooks/useAllSms.js'
 import { sendSms, sendBulkSms, linkSmsToClient, markSmsRead } from '../services/smsService.js'
 import { listClients } from '../services/clientService.js'
 import { listContactableRelationships } from '../services/relationshipService.js'
+import { listPrograms } from '../services/programService.js'
+import { listProgramParticipants } from '../services/programParticipantService.js'
 import { useToast } from '../context/ToastContext.jsx'
 
 const STATUS_TONE = { sent: 'success', failed: 'danger', received: 'info' }
@@ -169,6 +171,9 @@ export default function Sms() {
   const [bulkSelectedIds, setBulkSelectedIds] = useState(() => new Set())
   const [bulkForm, setBulkForm] = useState(emptyBulkForm)
   const [sendingBulk, setSendingBulk] = useState(false)
+  const [programs, setPrograms] = useState([])
+  const [bulkProgramId, setBulkProgramId] = useState('')
+  const [addingProgramClients, setAddingProgramClients] = useState(false)
 
   useEffect(() => {
     listClients()
@@ -177,6 +182,9 @@ export default function Sms() {
     listContactableRelationships()
       .then(setRelationships)
       .catch(() => setRelationships([]))
+    listPrograms()
+      .then(setPrograms)
+      .catch(() => setPrograms([]))
   }, [])
 
   const relationshipsByClient = useMemo(() => {
@@ -194,6 +202,27 @@ export default function Sms() {
     setBulkForm(emptyBulkForm)
     setBulkSelectedIds(new Set())
     setBulkClientSearch('')
+    setBulkProgramId('')
+  }
+
+  const handleAddProgramClients = async (programId) => {
+    if (!programId) return
+    setAddingProgramClients(true)
+    try {
+      const participants = await listProgramParticipants(programId)
+      setBulkSelectedIds((prev) => {
+        const next = new Set(prev)
+        for (const p of participants) next.add(p.client_id)
+        return next
+      })
+      const programName = programs.find((p) => p.id === programId)?.name || 'program'
+      toast.success(`Added ${participants.length} client${participants.length === 1 ? '' : 's'} from ${programName}.`)
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setAddingProgramClients(false)
+      setBulkProgramId('')
+    }
   }
 
   // --- Individual send ---
@@ -472,6 +501,31 @@ export default function Sms() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            <label className="form-label">Add everyone from a program</label>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+              <select
+                className="input"
+                style={{ maxWidth: 320 }}
+                value={bulkProgramId}
+                onChange={(e) => setBulkProgramId(e.target.value)}
+              >
+                <option value="">Select a program...</option>
+                {programs.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => handleAddProgramClients(bulkProgramId)}
+                disabled={!bulkProgramId || addingProgramClients}
+              >
+                {addingProgramClients ? 'Adding...' : 'Add Clients'}
+              </Button>
             </div>
 
             <label className="form-label">Select clients ({bulkSelectedIds.size} selected)</label>

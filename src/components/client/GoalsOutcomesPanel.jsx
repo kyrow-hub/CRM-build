@@ -20,7 +20,24 @@ const STATUS_TONE = {
   'Not Achieved': 'danger',
 }
 
-const emptyForm = { title: '', targetDate: '', status: 'Not Started', actions: '', responsiblePerson: '', notes: '' }
+const WILLINGNESS_OPTIONS = ['Not Interested in Change', 'Thinking About Change', 'Taking Steps to Change', 'Making Change']
+
+const WILLINGNESS_TONE = {
+  'Not Interested in Change': 'danger',
+  'Thinking About Change': 'warning',
+  'Taking Steps to Change': 'info',
+  'Making Change': 'success',
+}
+
+const emptyForm = {
+  title: '',
+  targetDate: '',
+  status: 'Not Started',
+  willingnessToChange: '',
+  actions: '',
+  responsiblePerson: '',
+  notes: '',
+}
 
 function GoalRow({ goal, workers, canManage, onUpdated, onDeleted }) {
   const toast = useToast()
@@ -38,6 +55,7 @@ function GoalRow({ goal, workers, canManage, onUpdated, onDeleted }) {
       title: goal.title,
       targetDate: goal.target_date || '',
       status: goal.status,
+      willingnessToChange: goal.willingness_to_change || '',
       actions: goal.actions || '',
       responsiblePerson: goal.responsible_person || '',
       notes: goal.notes || '',
@@ -53,6 +71,7 @@ function GoalRow({ goal, workers, canManage, onUpdated, onDeleted }) {
         title: form.title.trim(),
         target_date: form.targetDate || null,
         status: form.status,
+        willingness_to_change: form.willingnessToChange || null,
         actions: form.actions.trim() || null,
         responsible_person: form.responsiblePerson || null,
         notes: form.notes || null,
@@ -140,6 +159,24 @@ function GoalRow({ goal, workers, canManage, onUpdated, onDeleted }) {
                 ))}
               </select>
             </div>
+            <div>
+              <label className="form-label" htmlFor={`eg-willingness-${goal.id}`}>
+                Willingness to Change
+              </label>
+              <select
+                id={`eg-willingness-${goal.id}`}
+                className="input"
+                value={form.willingnessToChange}
+                onChange={(e) => setForm((f) => ({ ...f, willingnessToChange: e.target.value }))}
+              >
+                <option value="">Not recorded</option>
+                {WILLINGNESS_OPTIONS.map((w) => (
+                  <option key={w} value={w}>
+                    {w}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <div style={{ marginTop: 14 }}>
             <label className="form-label" htmlFor={`eg-actions-${goal.id}`}>
@@ -186,7 +223,12 @@ function GoalRow({ goal, workers, canManage, onUpdated, onDeleted }) {
         {goal.actions && <div className="data-cell-muted" style={{ fontSize: 11.5 }}>Actions: {goal.actions}</div>}
       </span>
       <span className="data-cell-muted goals-col-date">{goal.target_date || '—'}</span>
-      <StatusPill tone={STATUS_TONE[goal.status] ?? 'neutral'}>{goal.status}</StatusPill>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+        <StatusPill tone={STATUS_TONE[goal.status] ?? 'neutral'}>{goal.status}</StatusPill>
+        {goal.willingness_to_change && (
+          <StatusPill tone={WILLINGNESS_TONE[goal.willingness_to_change] ?? 'neutral'}>{goal.willingness_to_change}</StatusPill>
+        )}
+      </div>
       <span className="data-cell-muted goals-col-notes">{goal.notes || '—'}</span>
       {canManage && (
         <div style={{ display: 'flex', gap: 4 }}>
@@ -229,6 +271,7 @@ export default function GoalsOutcomesPanel({ clientId, clientName }) {
         title: form.title.trim(),
         target_date: form.targetDate || null,
         status: form.status,
+        willingness_to_change: form.willingnessToChange || null,
         actions: form.actions.trim() || null,
         responsible_person: form.responsiblePerson || null,
         notes: form.notes || null,
@@ -249,7 +292,7 @@ export default function GoalsOutcomesPanel({ clientId, clientName }) {
     <div>
       <div className="section-head">
         <div>
-          <div className="section-title">Goals & Outcomes</div>
+          <div className="section-title">Goals</div>
           <div className="section-subtitle">
             {loading ? 'Loading...' : `${goals.length} ${goals.length === 1 ? 'goal' : 'goals'} for ${clientName}`}
           </div>
@@ -326,6 +369,24 @@ export default function GoalsOutcomesPanel({ clientId, clientName }) {
                   {workers.map((w) => (
                     <option key={w.id} value={w.id}>
                       {[w.first_name, w.last_name].filter(Boolean).join(' ') || w.id}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="form-label" htmlFor="goal-willingness">
+                  Willingness to Change
+                </label>
+                <select
+                  id="goal-willingness"
+                  className="input"
+                  value={form.willingnessToChange}
+                  onChange={(e) => setForm((f) => ({ ...f, willingnessToChange: e.target.value }))}
+                >
+                  <option value="">Not recorded</option>
+                  {WILLINGNESS_OPTIONS.map((w) => (
+                    <option key={w} value={w}>
+                      {w}
                     </option>
                   ))}
                 </select>

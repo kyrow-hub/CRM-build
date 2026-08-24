@@ -53,7 +53,7 @@ export const CLIENT_TABS = [
   },
   {
     key: 'goals-outcomes',
-    label: 'Goals & Outcomes',
+    label: 'Goals',
     icon: TrendingUp,
     emptyTitle: 'No goals set yet',
     emptyText: 'Goals and outcome tracking for this client will appear here.',

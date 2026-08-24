@@ -13,7 +13,9 @@ export async function listClientStaffAssignments(clientId) {
 }
 
 export async function addStaffAssignment(input) {
-  if (!input.profile_id) throw new Error('Select a staff member.')
+  if (!input.profile_id && !input.external_name?.trim()) {
+    throw new Error('Select a staff member or enter an external worker\'s name.')
+  }
   const { data, error } = await supabase
     .from('client_staff_assignments')
     .insert(input)

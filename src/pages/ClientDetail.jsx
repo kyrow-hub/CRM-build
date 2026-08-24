@@ -167,6 +167,7 @@ export default function ClientDetail() {
                 <div className="client-detail-name">
                   {fullName}
                   <StatusPill tone={STATUS_TONE[client.status] ?? 'neutral'}>{client.status}</StatusPill>
+                  {client.client_type === 'activity_only' && <StatusPill tone="info">Activity Only</StatusPill>}
                 </div>
                 <div className="client-detail-sub">
                   <span className="client-detail-sub-item">{client.client_number}</span>

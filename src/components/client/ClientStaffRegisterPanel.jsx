@@ -3,6 +3,7 @@ import { Plus, ClipboardList, X, Pencil } from 'lucide-react'
 import Card from '../ui/Card.jsx'
 import Button from '../ui/Button.jsx'
 import EmptyState from '../ui/EmptyState.jsx'
+import StatusPill from '../ui/StatusPill.jsx'
 import { useClientStaffAssignments } from '../../hooks/useClientStaffAssignments.js'
 import { addStaffAssignment, updateStaffAssignment, removeStaffAssignment } from '../../services/clientStaffAssignmentService.js'
 import { listAssignableWorkers } from '../../services/clientService.js'
@@ -23,7 +24,15 @@ const ROLE_OPTIONS = [
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
-const emptyForm = { profile_id: '', role_on_case: ROLE_OPTIONS[0], assigned_date: todayISO(), notes: '' }
+const emptyForm = {
+  personType: 'internal',
+  profile_id: '',
+  externalName: '',
+  externalOrganisation: '',
+  role_on_case: ROLE_OPTIONS[0],
+  assigned_date: todayISO(),
+  notes: '',
+}
 
 function AssignmentItem({ assignment, canManage, onUpdated, onRemoved }) {
   const toast = useToast()
@@ -34,7 +43,10 @@ function AssignmentItem({ assignment, canManage, onUpdated, onRemoved }) {
   const [submitting, setSubmitting] = useState(false)
   const [removing, setRemoving] = useState(false)
 
-  const name = assignment.worker ? [assignment.worker.first_name, assignment.worker.last_name].filter(Boolean).join(' ') : 'Unknown'
+  const isExternal = !assignment.profile_id
+  const name = assignment.worker
+    ? [assignment.worker.first_name, assignment.worker.last_name].filter(Boolean).join(' ')
+    : assignment.external_name || 'Unknown'
 
   const handleSave = async (e) => {
     e.preventDefault()
@@ -122,9 +134,15 @@ function AssignmentItem({ assignment, canManage, onUpdated, onRemoved }) {
           <span>
             {name} · {assignment.role_on_case}
           </span>
+          {isExternal && <StatusPill tone="info">External</StatusPill>}
         </div>
         <span>{assignment.assigned_date}</span>
       </div>
+      {isExternal && assignment.external_organisation && (
+        <div className="data-cell-muted" style={{ marginBottom: assignment.notes ? 4 : 0 }}>
+          {assignment.external_organisation}
+        </div>
+      )}
       {assignment.notes && <div className="note-item-text">{assignment.notes}</div>}
       {canManage && (
         <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
@@ -165,7 +183,9 @@ export default function ClientStaffRegisterPanel({ clientId, clientName }) {
     try {
       await addStaffAssignment({
         client_id: clientId,
-        profile_id: form.profile_id,
+        profile_id: form.personType === 'internal' ? form.profile_id : null,
+        external_name: form.personType === 'external' ? form.externalName.trim() : null,
+        external_organisation: form.personType === 'external' ? form.externalOrganisation.trim() || null : null,
         role_on_case: form.role_on_case,
         assigned_date: form.assigned_date,
         notes: form.notes.trim() || null,
@@ -204,24 +224,67 @@ export default function ClientStaffRegisterPanel({ clientId, clientName }) {
           <form onSubmit={handleAdd}>
             <div className="form-grid">
               <div>
-                <label className="form-label" htmlFor="sr-worker">
-                  Staff Member
+                <label className="form-label" htmlFor="sr-person-type">
+                  Staff Member Type
                 </label>
                 <select
-                  id="sr-worker"
+                  id="sr-person-type"
                   className="input"
-                  value={form.profile_id}
-                  onChange={(e) => setForm((f) => ({ ...f, profile_id: e.target.value }))}
-                  required
+                  value={form.personType}
+                  onChange={(e) => setForm((f) => ({ ...f, personType: e.target.value }))}
                 >
-                  <option value="">Select a staff member...</option>
-                  {workers.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {[w.first_name, w.last_name].filter(Boolean).join(' ') || w.id}
-                    </option>
-                  ))}
+                  <option value="internal">Internal (Bori Muy staff)</option>
+                  <option value="external">External (from another organisation)</option>
                 </select>
               </div>
+              {form.personType === 'internal' ? (
+                <div>
+                  <label className="form-label" htmlFor="sr-worker">
+                    Staff Member
+                  </label>
+                  <select
+                    id="sr-worker"
+                    className="input"
+                    value={form.profile_id}
+                    onChange={(e) => setForm((f) => ({ ...f, profile_id: e.target.value }))}
+                    required
+                  >
+                    <option value="">Select a staff member...</option>
+                    {workers.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {[w.first_name, w.last_name].filter(Boolean).join(' ') || w.id}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="form-label" htmlFor="sr-external-name">
+                      External Worker's Name
+                    </label>
+                    <input
+                      id="sr-external-name"
+                      className="input"
+                      value={form.externalName}
+                      onChange={(e) => setForm((f) => ({ ...f, externalName: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label" htmlFor="sr-external-org">
+                      Their Organisation
+                    </label>
+                    <input
+                      id="sr-external-org"
+                      className="input"
+                      placeholder="e.g. Youth Justice, Department of Communities"
+                      value={form.externalOrganisation}
+                      onChange={(e) => setForm((f) => ({ ...f, externalOrganisation: e.target.value }))}
+                    />
+                  </div>
+                </>
+              )}
               <div>
                 <label className="form-label" htmlFor="sr-role">
                   Role on Case

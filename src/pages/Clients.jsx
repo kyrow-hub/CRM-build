@@ -123,7 +123,14 @@ export default function Clients() {
                   <span className="clients-cell-muted">{c.client_number}</span>
                   <div className="client-identity">
                     <div className={`client-avatar avatar--${avatarTone(fullName)}`}>{initials(fullName)}</div>
-                    <span>{fullName}</span>
+                    <span>
+                      {fullName}
+                      {c.client_type === 'activity_only' && (
+                        <span className="data-cell-muted" style={{ marginLeft: 6, fontSize: 11 }}>
+                          (Activity Only)
+                        </span>
+                      )}
+                    </span>
                   </div>
                   <span className="clients-cell-muted clients-col-email">{c.phone || '—'}</span>
                   <span className="clients-cell-muted clients-col-phone">{workerName}</span>

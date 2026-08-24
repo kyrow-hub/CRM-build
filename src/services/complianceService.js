@@ -10,7 +10,7 @@ import { listReferrals, listReferralsForClient } from './referralService.js'
 import { listAllRelationships } from './relationshipService.js'
 import { listAllFollowUps, createFollowUp } from './followUpService.js'
 import { listAllIncidents } from './incidentService.js'
-import { CORE_MANDATORY_DOCUMENT_TYPES } from '../data/documentTypes.js'
+import { CORE_MANDATORY_DOCUMENT_TYPES, ACTIVITY_ONLY_MANDATORY_DOCUMENT_TYPES } from '../data/documentTypes.js'
 
 const GUARDIAN_RELATIONSHIP_TYPES = ['Mother', 'Father', 'Guardian', 'Grandmother', 'Grandfather', 'Foster Carer']
 
@@ -65,6 +65,14 @@ const CONSENT_FORM_RENEWAL_DAYS = 365
 // - "Manager approval" / "Risk Management Plan" for high-risk clients -
 //   surfaced as an informational alert only, since neither is a trackable
 //   record in the current schema.
+//
+// Activity Only clients (client.client_type === 'activity_only') get a
+// deliberately reduced version of all of the above: they aren't case
+// managed, so client details/assessments/reviews/service delivery/goals
+// sections don't apply to them at all, and Section 2 (Mandatory Documents)
+// only requires the four core documents rather than the full set. Referrals
+// and Incident Management still apply if the client happens to have any,
+// since those aren't case-management-specific.
 export function computeClientCompliance({
   client,
   documents = [],
@@ -89,51 +97,56 @@ export function computeClientCompliance({
     (client.referral_source || '').toLowerCase().includes('youth justice') ||
     referrals.some((r) => (r.referral_source || '').toLowerCase().includes('youth justice'))
   const isClosed = client.status === 'closed' || client.status === 'archived' || Boolean(client.archived_at)
+  const isActivityOnly = client.client_type === 'activity_only'
 
   const sections = []
 
-  // Section 1: Client Details
-  sections.push({
-    key: 'client_details',
-    title: 'Client Details',
-    severity: 'critical',
-    checks: [
-      {
-        key: 'participant_details',
-        label: 'Participant details complete',
-        pass: Boolean(client.first_name && client.last_name && client.date_of_birth && client.gender && client.address),
-      },
-      {
-        key: 'emergency_contact',
-        label: 'Emergency contact entered',
-        pass: Boolean(client.emergency_contact_name && client.emergency_contact_phone) || relationships.some((r) => r.is_primary_contact),
-      },
-      {
-        key: 'guardian_details',
-        label: 'Parent/Guardian details completed (if under 18)',
-        pass: !isMinor || relationships.some((r) => GUARDIAN_RELATIONSHIP_TYPES.includes(r.relationship_type)),
-        applicable: isMinor,
-      },
-      {
-        key: 'cultural_identity',
-        label: 'Cultural identity recorded',
-        pass: Boolean(client.indigenous_status || client.cultural_background),
-      },
-      {
-        key: 'funding_program',
-        label: 'Funding program assigned',
-        pass: assessments.some((a) => a.primary_program || a.funding_source),
-      },
-      { key: 'case_worker', label: 'Assigned case worker', pass: Boolean(client.assigned_worker_id) },
-    ],
-  })
+  // Section 1: Client Details - not applicable to Activity Only clients.
+  if (!isActivityOnly) {
+    sections.push({
+      key: 'client_details',
+      title: 'Client Details',
+      severity: 'critical',
+      checks: [
+        {
+          key: 'participant_details',
+          label: 'Participant details complete',
+          pass: Boolean(client.first_name && client.last_name && client.date_of_birth && client.gender && client.address),
+        },
+        {
+          key: 'emergency_contact',
+          label: 'Emergency contact entered',
+          pass: Boolean(client.emergency_contact_name && client.emergency_contact_phone) || relationships.some((r) => r.is_primary_contact),
+        },
+        {
+          key: 'guardian_details',
+          label: 'Parent/Guardian details completed (if under 18)',
+          pass: !isMinor || relationships.some((r) => GUARDIAN_RELATIONSHIP_TYPES.includes(r.relationship_type)),
+          applicable: isMinor,
+        },
+        {
+          key: 'cultural_identity',
+          label: 'Cultural identity recorded',
+          pass: Boolean(client.indigenous_status || client.cultural_background),
+        },
+        {
+          key: 'funding_program',
+          label: 'Funding program assigned',
+          pass: assessments.some((a) => a.primary_program || a.funding_source),
+        },
+        { key: 'case_worker', label: 'Assigned case worker', pass: Boolean(client.assigned_worker_id) },
+      ],
+    })
+  }
 
   // Section 2: Mandatory Documents. Consent Form must be renewed every 12
   // months (not just present once), per the annual-renewal requirement -
-  // every other core document just needs to exist.
+  // every other core document just needs to exist. Activity Only clients
+  // only need the reduced four-document set.
+  const mandatoryDocumentTypes = isActivityOnly ? ACTIVITY_ONLY_MANDATORY_DOCUMENT_TYPES : CORE_MANDATORY_DOCUMENT_TYPES
   const consentFormDate = mostRecentDocumentDate(documents, 'Consent Form')
   const consentFormCurrent = Boolean(consentFormDate) && daysAgo(consentFormDate) <= CONSENT_FORM_RENEWAL_DAYS
-  const documentChecks = CORE_MANDATORY_DOCUMENT_TYPES.map((type) =>
+  const documentChecks = mandatoryDocumentTypes.map((type) =>
     type === 'Consent Form'
       ? {
           key: docKey(type),
@@ -150,95 +163,106 @@ export function computeClientCompliance({
   })
   sections.push({ key: 'documents', title: 'Mandatory Documents', severity: 'critical', checks: documentChecks })
 
-  // Section 3: Assessments
-  sections.push({
-    key: 'assessments',
-    title: 'Assessments',
-    severity: 'critical',
-    checks: [
-      { key: 'intake_assessment', label: 'Intake Assessment', pass: assessments.some((a) => a.assessment_type === 'Intake') },
-      { key: 'risk_assessment', label: 'Risk Assessment', pass: assessments.some((a) => a.overall_risk_level) },
-      {
-        key: 'needs_assessment',
-        label: 'Needs Assessment',
-        pass: assessments.some((a) => a.needs_ratings && Object.keys(a.needs_ratings).length > 0),
-      },
-      {
-        key: 'sewb_assessment',
-        label: 'SEWB Assessment',
-        pass: assessments.some((a) => a.sewb_scores && Object.keys(a.sewb_scores).length > 0),
-      },
-      { key: 'initial_goals', label: 'Initial Goals completed', pass: goals.length > 0 },
-      { key: 'support_plan', label: 'Individual Support Plan', pass: servicePlanItems.length > 0 },
-    ],
-  })
+  // Section 3: Assessments - not applicable to Activity Only clients.
+  if (!isActivityOnly) {
+    sections.push({
+      key: 'assessments',
+      title: 'Assessments',
+      severity: 'critical',
+      checks: [
+        { key: 'intake_assessment', label: 'Intake Assessment', pass: assessments.some((a) => a.assessment_type === 'Intake') },
+        { key: 'risk_assessment', label: 'Risk Assessment', pass: assessments.some((a) => a.overall_risk_level) },
+        {
+          key: 'needs_assessment',
+          label: 'Needs Assessment',
+          pass: assessments.some((a) => a.needs_ratings && Object.keys(a.needs_ratings).length > 0),
+        },
+        {
+          key: 'sewb_assessment',
+          label: 'SEWB Assessment',
+          pass: assessments.some((a) => a.sewb_scores && Object.keys(a.sewb_scores).length > 0),
+        },
+        { key: 'initial_goals', label: 'Initial Goals completed', pass: goals.length > 0 },
+        { key: 'support_plan', label: 'Individual Support Plan', pass: servicePlanItems.length > 0 },
+      ],
+    })
+  }
 
   // Section 4: Reviews - only the 90-day review cycle is independently
-  // tracked today (see module note above).
+  // tracked today (see module note above). Not applicable to Activity
+  // Only clients, who aren't on a case-review cycle.
   let reviewStatus = 'none'
-  if (client.next_review_date) {
-    if (client.next_review_date < today) reviewStatus = 'overdue'
-    else if (daysUntil(client.next_review_date) <= 14) reviewStatus = 'due-soon'
-    else reviewStatus = 'current'
+  if (!isActivityOnly) {
+    if (client.next_review_date) {
+      if (client.next_review_date < today) reviewStatus = 'overdue'
+      else if (daysUntil(client.next_review_date) <= 14) reviewStatus = 'due-soon'
+      else reviewStatus = 'current'
+    }
+    sections.push({
+      key: 'reviews',
+      title: 'Reviews',
+      severity: 'review',
+      checks: [
+        {
+          key: 'review_90_day',
+          label: '90-Day Review',
+          pass: reviewStatus === 'current' || reviewStatus === 'due-soon',
+          status: reviewStatus,
+        },
+      ],
+    })
   }
-  sections.push({
-    key: 'reviews',
-    title: 'Reviews',
-    severity: 'review',
-    checks: [
-      {
-        key: 'review_90_day',
-        label: '90-Day Review',
-        pass: reviewStatus === 'current' || reviewStatus === 'due-soon',
-        status: reviewStatus,
-      },
-    ],
-  })
 
-  // Section 5: Service Delivery
-  const lastServiceDays = Math.min(
-    Infinity,
-    ...notes.map((n) => daysAgo(n.note_date)),
-    ...activities.map((a) => daysAgo(a.activity_date)),
-    ...attendance.map((a) => daysAgo(a.session?.session_date)),
-  )
-  const inactiveClient = !isClosed && lastServiceDays > 30
-  sections.push({
-    key: 'service_delivery',
-    title: 'Service Delivery',
-    severity: 'attention',
-    checks: [
-      { key: 'service_30_days', label: 'Service delivered within last 30 days', pass: lastServiceDays <= 30 },
-      { key: 'case_note', label: 'Case note entered', pass: notes.length > 0 },
-      { key: 'attendance_recorded', label: 'Attendance recorded', pass: attendance.length > 0 },
-      { key: 'group_notes', label: 'Group notes completed', pass: notes.some((n) => n.is_group_note) },
-      {
-        key: 'follow_ups',
-        label: 'Follow-up actions completed',
-        pass: !followUps.some((f) => f.status === 'Pending' && f.due_date < today),
-      },
-    ],
-  })
+  // Section 5: Service Delivery - not applicable to Activity Only clients.
+  let lastServiceDays = Infinity
+  let inactiveClient = false
+  if (!isActivityOnly) {
+    lastServiceDays = Math.min(
+      Infinity,
+      ...notes.map((n) => daysAgo(n.note_date)),
+      ...activities.map((a) => daysAgo(a.activity_date)),
+      ...attendance.map((a) => daysAgo(a.session?.session_date)),
+    )
+    inactiveClient = !isClosed && lastServiceDays > 30
+    sections.push({
+      key: 'service_delivery',
+      title: 'Service Delivery',
+      severity: 'attention',
+      checks: [
+        { key: 'service_30_days', label: 'Service delivered within last 30 days', pass: lastServiceDays <= 30 },
+        { key: 'case_note', label: 'Case note entered', pass: notes.length > 0 },
+        { key: 'attendance_recorded', label: 'Attendance recorded', pass: attendance.length > 0 },
+        { key: 'group_notes', label: 'Group notes completed', pass: notes.some((n) => n.is_group_note) },
+        {
+          key: 'follow_ups',
+          label: 'Follow-up actions completed',
+          pass: !followUps.some((f) => f.status === 'Pending' && f.due_date < today),
+        },
+      ],
+    })
+  }
 
-  // Section 6: Goals
-  sections.push({
-    key: 'goals',
-    title: 'Goals',
-    severity: 'attention',
-    checks: [
-      {
-        key: 'active_goal',
-        label: 'At least one active goal',
-        pass: goals.some((g) => g.status === 'Not Started' || g.status === 'In Progress'),
-      },
-      { key: 'goal_review', label: 'Goal review completed', pass: goals.some((g) => g.notes) },
-      {
-        key: 'goal_outcome',
-        label: 'Goal outcome recorded',
-        pass: goals.some((g) => g.status === 'Achieved' || g.status === 'Not Achieved'),
-      },
-    ],
-  })
+  // Section 6: Goals - not applicable to Activity Only clients.
+  if (!isActivityOnly) {
+    sections.push({
+      key: 'goals',
+      title: 'Goals',
+      severity: 'attention',
+      checks: [
+        {
+          key: 'active_goal',
+          label: 'At least one active goal',
+          pass: goals.some((g) => g.status === 'Not Started' || g.status === 'In Progress'),
+        },
+        { key: 'goal_review', label: 'Goal review completed', pass: goals.some((g) => g.notes) },
+        {
+          key: 'goal_outcome',
+          label: 'Goal outcome recorded',
+          pass: goals.some((g) => g.status === 'Achieved' || g.status === 'Not Achieved'),
+        },
+      ],
+    })
+  }
 
   // Section 7: Referrals - only relevant if the client has any
   if (referrals.length > 0) {
@@ -276,31 +300,36 @@ export function computeClientCompliance({
 
   // Section 9: Exit - computed always (so it can gate the Archive action
   // before status actually changes) but only shown/scored once the client
-  // is closed/archived.
+  // is closed/archived. Not applicable to Activity Only clients (no
+  // assessments were ever required of them, so an Exit Assessment can't
+  // be either) - exitChecks is left empty, which makes exitReady trivially
+  // true for them.
   const exitAssessment = [...assessments].reverse().find((a) => a.assessment_type === 'Exit')
-  const exitChecks = [
-    { key: 'exit_assessment', label: 'Exit Assessment', pass: Boolean(exitAssessment) },
-    { key: 'exit_reason', label: 'Exit Reason', pass: Boolean(client.exit_reason) },
-    {
-      key: 'exit_outcome',
-      label: 'Outcome recorded',
-      pass: Boolean(
-        exitAssessment &&
-          (exitAssessment.education_outcome ||
-            exitAssessment.employment_outcome ||
-            exitAssessment.housing_outcome ||
-            exitAssessment.cultural_outcome ||
-            exitAssessment.wellbeing_outcome),
-      ),
-    },
-    { key: 'final_case_note', label: 'Final Case Note', pass: notes.length > 0 },
-    {
-      key: 'referral_completed',
-      label: 'Referral completed (if applicable)',
-      pass: referrals.length === 0 || referrals.every((r) => r.status !== 'Received'),
-    },
-  ]
-  if (isClosed) {
+  const exitChecks = isActivityOnly
+    ? []
+    : [
+        { key: 'exit_assessment', label: 'Exit Assessment', pass: Boolean(exitAssessment) },
+        { key: 'exit_reason', label: 'Exit Reason', pass: Boolean(client.exit_reason) },
+        {
+          key: 'exit_outcome',
+          label: 'Outcome recorded',
+          pass: Boolean(
+            exitAssessment &&
+              (exitAssessment.education_outcome ||
+                exitAssessment.employment_outcome ||
+                exitAssessment.housing_outcome ||
+                exitAssessment.cultural_outcome ||
+                exitAssessment.wellbeing_outcome),
+          ),
+        },
+        { key: 'final_case_note', label: 'Final Case Note', pass: notes.length > 0 },
+        {
+          key: 'referral_completed',
+          label: 'Referral completed (if applicable)',
+          pass: referrals.length === 0 || referrals.every((r) => r.status !== 'Received'),
+        },
+      ]
+  if (isClosed && !isActivityOnly) {
     sections.push({ key: 'exit', title: 'Exit', severity: 'critical', checks: exitChecks })
   }
 

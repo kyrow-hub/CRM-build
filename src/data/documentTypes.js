@@ -21,3 +21,9 @@ export const CORE_MANDATORY_DOCUMENT_TYPES = [
   'Medical Information',
   'Referral Document',
 ]
+
+// Activity Only clients (client_type = 'activity_only') aren't case
+// managed, so the full compliance checklist doesn't apply to them - see
+// complianceService.js. This is the reduced document set that determines
+// their compliance status on its own.
+export const ACTIVITY_ONLY_MANDATORY_DOCUMENT_TYPES = ['Consent Form', 'Privacy Consent', 'Media Consent', 'Medical Information']
