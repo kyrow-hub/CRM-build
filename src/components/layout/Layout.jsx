@@ -7,7 +7,6 @@ import { getPartnerById } from '../../services/partnerService.js'
 
 const PAGE_META = {
   '/': { title: 'Dashboard', subtitle: 'Overview of your pipeline' },
-  '/leads': { title: 'Leads', subtitle: 'Track and qualify new prospects' },
   '/referrals': { title: 'Referrals', subtitle: 'Track referrals from first contact to accepted or declined' },
   '/clients': { title: 'Clients', subtitle: 'Everyone you do business with' },
   '/partners': { title: 'Partners', subtitle: 'Businesses and organizations you work with' },

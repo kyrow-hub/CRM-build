@@ -4,7 +4,6 @@ import ProtectedRoute from './components/auth/ProtectedRoute.jsx'
 import Login from './pages/Login.jsx'
 import ResetPassword from './pages/ResetPassword.jsx'
 import Dashboard from './pages/Dashboard.jsx'
-import Leads from './pages/Leads.jsx'
 import Clients from './pages/Clients.jsx'
 import ClientDetail from './pages/ClientDetail.jsx'
 import Partners from './pages/Partners.jsx'
@@ -31,7 +30,6 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
               <Route path="/" element={<Dashboard />} />
-              <Route path="/leads" element={<Leads />} />
               <Route path="/referrals" element={<Referrals />} />
               <Route path="/incidents" element={<Incidents />} />
               <Route path="/clients" element={<Clients />} />

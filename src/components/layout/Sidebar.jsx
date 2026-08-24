@@ -2,7 +2,6 @@ import { NavLink } from 'react-router-dom'
 import logoMark from '../../assets/logo-mark.png'
 import {
   LayoutDashboard,
-  Target,
   Share2,
   Users,
   Building2,
@@ -18,7 +17,6 @@ import {
 
 const NAV_ITEMS = [
   { label: 'Dashboard', to: '/', icon: LayoutDashboard },
-  { label: 'Leads', to: '/leads', icon: Target },
   { label: 'Referrals', to: '/referrals', icon: Share2 },
   { label: 'Clients', to: '/clients', icon: Users },
   { label: 'Partners', to: '/partners', icon: Building2 },

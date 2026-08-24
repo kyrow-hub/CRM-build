@@ -19,20 +19,18 @@ export async function getDashboardStats() {
   const { start, end } = getWeekRange()
   const today = new Date().toISOString().slice(0, 10)
 
-  const [clientsResult, leadsResult, referralsWeekResult, meetingsWeekResult, reviewsOverdueResult] = await Promise.all([
+  const [clientsResult, referralsWeekResult, meetingsWeekResult, reviewsOverdueResult] = await Promise.all([
     supabase.from('clients').select('id', { count: 'exact', head: true }).eq('status', 'active').is('archived_at', null),
-    supabase.from('leads').select('id', { count: 'exact', head: true }),
     supabase.from('referrals').select('id', { count: 'exact', head: true }).gte('date_received', start).lt('date_received', end),
     supabase.from('meetings').select('id', { count: 'exact', head: true }).gte('meeting_date', start).lt('meeting_date', end),
     supabase.from('clients').select('id', { count: 'exact', head: true }).lt('next_review_date', today).is('archived_at', null),
   ])
-  for (const result of [clientsResult, leadsResult, referralsWeekResult, meetingsWeekResult, reviewsOverdueResult]) {
+  for (const result of [clientsResult, referralsWeekResult, meetingsWeekResult, reviewsOverdueResult]) {
     if (result.error) throw result.error
   }
 
   return {
     activeClients: clientsResult.count ?? 0,
-    totalLeads: leadsResult.count ?? 0,
     referralsThisWeek: referralsWeekResult.count ?? 0,
     meetingsThisWeek: meetingsWeekResult.count ?? 0,
     reviewsOverdue: reviewsOverdueResult.count ?? 0,
