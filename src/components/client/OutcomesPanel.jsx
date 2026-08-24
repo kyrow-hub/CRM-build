@@ -1,13 +1,95 @@
 import { useState } from 'react'
-import { Plus, Award, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Award, Pencil, Trash2, TrendingUp } from 'lucide-react'
 import Card from '../ui/Card.jsx'
 import Button from '../ui/Button.jsx'
 import EmptyState from '../ui/EmptyState.jsx'
 import StatusPill from '../ui/StatusPill.jsx'
 import { useClientOutcomes } from '../../hooks/useClientOutcomes.js'
+import { useClientGoals } from '../../hooks/useClientGoals.js'
 import { createOutcome, updateOutcome, deleteOutcome } from '../../services/outcomeService.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+
+const GOAL_STATUS_TONE = {
+  'Not Started': 'neutral',
+  'In Progress': 'info',
+  Achieved: 'success',
+  'Not Achieved': 'danger',
+}
+
+const WILLINGNESS_TONE = {
+  'Not Interested in Change': 'danger',
+  'Thinking About Change': 'warning',
+  'Taking Steps to Change': 'info',
+  'Making Change': 'success',
+}
+
+// Ties Goals (status + Willingness to Change) and Outcomes together into
+// one at-a-glance summary, since they're tracked on separate tabs but
+// answer the same underlying question: how is this client actually going?
+function ChangeProgressTracker({ clientId, outcomeCount }) {
+  const { goals, loading } = useClientGoals(clientId)
+
+  if (loading || goals.length === 0) return null
+
+  const latestWillingness = goals.find((g) => g.willingness_to_change)?.willingness_to_change
+  const total = goals.length
+  const achieved = goals.filter((g) => g.status === 'Achieved').length
+  const inProgress = goals.filter((g) => g.status === 'In Progress').length
+  const notStarted = goals.filter((g) => g.status === 'Not Started').length
+  const notAchieved = goals.filter((g) => g.status === 'Not Achieved').length
+  const achievedPct = total > 0 ? Math.round((achieved / total) * 100) : 0
+
+  return (
+    <Card style={{ marginBottom: 18 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+        <TrendingUp strokeWidth={2} style={{ width: 18, height: 18, color: 'var(--accent)' }} />
+        <div className="section-title" style={{ marginBottom: 0 }}>
+          Change Progress
+        </div>
+      </div>
+      <div className="section-subtitle" style={{ marginBottom: 16 }}>
+        How this client is tracking toward their goals, based on the latest Willingness to Change rating and goal
+        outcomes so far.
+      </div>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'center', marginBottom: 16 }}>
+        <div>
+          <div className="data-cell-muted" style={{ marginBottom: 6 }}>
+            Current Willingness to Change
+          </div>
+          {latestWillingness ? (
+            <StatusPill tone={WILLINGNESS_TONE[latestWillingness] ?? 'neutral'}>{latestWillingness}</StatusPill>
+          ) : (
+            <span className="data-cell-muted">Not recorded</span>
+          )}
+        </div>
+        <div>
+          <div className="data-cell-muted" style={{ marginBottom: 6 }}>
+            Outcomes Recorded
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>{outcomeCount}</div>
+        </div>
+      </div>
+
+      <div className="data-cell-muted" style={{ marginBottom: 6 }}>
+        Goal Progress · {achieved} of {total} achieved ({achievedPct}%)
+      </div>
+      <div style={{ display: 'flex', height: 10, borderRadius: 999, overflow: 'hidden', background: 'var(--surface-2)', marginBottom: 12 }}>
+        {achieved > 0 && <div style={{ width: `${(achieved / total) * 100}%`, background: '#22c55e' }} />}
+        {inProgress > 0 && <div style={{ width: `${(inProgress / total) * 100}%`, background: '#3b82f6' }} />}
+        {notAchieved > 0 && <div style={{ width: `${(notAchieved / total) * 100}%`, background: '#ef4444' }} />}
+        {notStarted > 0 && <div style={{ width: `${(notStarted / total) * 100}%`, background: 'var(--border)' }} />}
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        <StatusPill tone={GOAL_STATUS_TONE.Achieved}>{achieved} Achieved</StatusPill>
+        <StatusPill tone={GOAL_STATUS_TONE['In Progress']}>{inProgress} In Progress</StatusPill>
+        <StatusPill tone={GOAL_STATUS_TONE['Not Started']}>{notStarted} Not Started</StatusPill>
+        <StatusPill tone={GOAL_STATUS_TONE['Not Achieved']}>{notAchieved} Not Achieved</StatusPill>
+      </div>
+    </Card>
+  )
+}
 
 const CATEGORIES = ['Education', 'Employment', 'Health', 'Justice', 'Family', 'Cultural', 'Camp']
 
@@ -227,6 +309,8 @@ export default function OutcomesPanel({ clientId, clientName }) {
 
   return (
     <div>
+      <ChangeProgressTracker clientId={clientId} outcomeCount={outcomes.length} />
+
       <div className="section-head">
         <div>
           <div className="section-title">Outcomes</div>
