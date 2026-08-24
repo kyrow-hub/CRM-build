@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Mail, MailOpen, Plus, Send, Inbox, ArrowUpRight, ArrowDownLeft } from 'lucide-react'
+import { Mail, MailOpen, Plus, Send, Inbox, ArrowUpRight, ArrowDownLeft, Trash2 } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import Button from '../components/ui/Button.jsx'
 import StatusPill from '../components/ui/StatusPill.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
 import { useAllEmails } from '../hooks/useAllEmails.js'
-import { sendEmail, linkEmailToClient, markEmailRead } from '../services/emailService.js'
+import { sendEmail, linkEmailToClient, markEmailRead, deleteEmail } from '../services/emailService.js'
 import { listClients } from '../services/clientService.js'
+import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { initials } from '../utils/initials.js'
 import { avatarTone } from '../utils/avatarColor.js'
@@ -20,12 +21,13 @@ function clientName(client) {
   return client ? [client.first_name, client.last_name].filter(Boolean).join(' ') : null
 }
 
-function EmailItem({ email, clients, onUpdated }) {
+function EmailItem({ email, clients, canDelete, onUpdated, onDeleted }) {
   const toast = useToast()
   const [linking, setLinking] = useState(false)
   const [selectedClientId, setSelectedClientId] = useState('')
   const [savingLink, setSavingLink] = useState(false)
   const [savingRead, setSavingRead] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const name = clientName(email.client)
   const isInbound = email.direction === 'inbound'
@@ -54,6 +56,20 @@ function EmailItem({ email, clients, onUpdated }) {
       toast.error(err.message)
     } finally {
       setSavingLink(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!window.confirm('Delete this email? This cannot be undone.')) return
+    setDeleting(true)
+    try {
+      await deleteEmail(email.id)
+      toast.success('Email deleted.')
+      onDeleted()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -92,6 +108,12 @@ function EmailItem({ email, clients, onUpdated }) {
             {linking ? 'Cancel' : 'Link to client'}
           </button>
         )}
+        {canDelete && (
+          <button type="button" className="link-button" style={{ color: '#f87171' }} onClick={handleDelete} disabled={deleting}>
+            <Trash2 strokeWidth={2} style={{ width: 13, height: 13, marginRight: 4, verticalAlign: 'text-bottom' }} />
+            {deleting ? 'Deleting...' : 'Delete'}
+          </button>
+        )}
       </div>
       {linking && (
         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
@@ -113,6 +135,8 @@ function EmailItem({ email, clients, onUpdated }) {
 }
 
 export default function Email() {
+  const { profile } = useAuth()
+  const isAdminManager = profile?.role === 'administrator' || profile?.role === 'manager'
   const toast = useToast()
   const [clients, setClients] = useState([])
   const [showForm, setShowForm] = useState(false)
@@ -269,7 +293,7 @@ export default function Email() {
         ) : (
           <div className="note-list">
             {filteredEmails.map((e) => (
-              <EmailItem key={e.id} email={e} clients={clients} onUpdated={refetch} />
+              <EmailItem key={e.id} email={e} clients={clients} canDelete={isAdminManager} onUpdated={refetch} onDeleted={refetch} />
             ))}
           </div>
         )}

@@ -125,8 +125,24 @@ function SewbGrid({ value, onChange }) {
   )
 }
 
-export default function AssessmentForm({ clientId, workers, currentUserId, onSave, onCancel, submitting }) {
-  const [form, setForm] = useState(() => buildEmptyForm(currentUserId))
+// initialValues comes straight from a DB row (extra columns like id, client_id,
+// created_by, timestamps, and the joined assessor object), so only pull across
+// the fields the form actually edits, falling back to each field's own default
+// type rather than a bare null when the row has nothing set.
+function seedFromAssessment(currentUserId, initialValues) {
+  const empty = buildEmptyForm(currentUserId)
+  if (!initialValues) return empty
+  const seeded = { ...empty }
+  for (const key of Object.keys(empty)) {
+    if (initialValues[key] !== undefined && initialValues[key] !== null) {
+      seeded[key] = initialValues[key]
+    }
+  }
+  return seeded
+}
+
+export default function AssessmentForm({ clientId, workers, currentUserId, initialValues, onSave, onCancel, submitting }) {
+  const [form, setForm] = useState(() => seedFromAssessment(currentUserId, initialValues))
   const [formError, setFormError] = useState(null)
 
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }))
@@ -443,7 +459,7 @@ export default function AssessmentForm({ clientId, workers, currentUserId, onSav
             Cancel
           </Button>
           <Button type="submit" disabled={submitting}>
-            {submitting ? 'Saving...' : 'Save Assessment'}
+            {submitting ? 'Saving...' : initialValues ? 'Save Changes' : 'Save Assessment'}
           </Button>
         </div>
       </form>

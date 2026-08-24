@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Mail, Phone, MapPin, Cake, Pencil, Archive, MessageSquare } from 'lucide-react'
+import { ArrowLeft, Mail, Phone, MapPin, Cake, Pencil, Archive, MessageSquare, Trash2 } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import Button from '../components/ui/Button.jsx'
 import StatusPill from '../components/ui/StatusPill.jsx'
@@ -19,8 +19,9 @@ import ClientFollowUpsPanel from '../components/client/ClientFollowUpsPanel.jsx'
 import ClientAssessmentsPanel from '../components/client/ClientAssessmentsPanel.jsx'
 import ClientCompliancePanel from '../components/client/ClientCompliancePanel.jsx'
 import ClientIncidentsPanel from '../components/client/ClientIncidentsPanel.jsx'
-import { getClientById, updateClient, archiveClient, listAssignableWorkers } from '../services/clientService.js'
+import { getClientById, updateClient, archiveClient, deleteClient, listAssignableWorkers } from '../services/clientService.js'
 import { getExitReadiness } from '../services/complianceService.js'
+import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { initials } from '../utils/initials.js'
 import { avatarTone } from '../utils/avatarColor.js'
@@ -57,12 +58,16 @@ export default function ClientDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const toast = useToast()
+  const { profile } = useAuth()
   const [client, setClient] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [workers, setWorkers] = useState([])
   const [showEditForm, setShowEditForm] = useState(false)
   const [activeTab, setActiveTab] = useState(CLIENT_TABS[0].key)
+  const [deletingClient, setDeletingClient] = useState(false)
+
+  const isAdminManager = profile?.role === 'administrator' || profile?.role === 'manager'
 
   const loadClient = useCallback(async () => {
     setLoading(true)
@@ -114,6 +119,26 @@ export default function ClientDetail() {
       navigate('/clients')
     } catch (err) {
       toast.error(err.message)
+    }
+  }
+
+  const handleDeleteClient = async () => {
+    const confirmed = window.confirm(
+      `Permanently delete ${fullName}? This destroys their entire record - case notes, activities, goals, outcomes, ` +
+        'documents, assessments, staff register, and follow-ups - with no way to undo it. Referrals, meetings, ' +
+        'incidents, emails, and SMS history stay but are unlinked from this client.\n\n' +
+        'In almost every case Archive is the right choice instead - it hides the client without destroying anything. ' +
+        'Only continue if this record genuinely should not exist.',
+    )
+    if (!confirmed) return
+    setDeletingClient(true)
+    try {
+      await deleteClient(id)
+      toast.success('Client permanently deleted.')
+      navigate('/clients')
+    } catch (err) {
+      toast.error(err.message)
+      setDeletingClient(false)
     }
   }
 
@@ -212,6 +237,12 @@ export default function ClientDetail() {
                 <Button variant="secondary" onClick={handleArchive}>
                   <Archive strokeWidth={2} />
                   Archive
+                </Button>
+              )}
+              {isAdminManager && (
+                <Button variant="secondary" onClick={handleDeleteClient} disabled={deletingClient}>
+                  <Trash2 strokeWidth={2} />
+                  {deletingClient ? 'Deleting...' : 'Delete Permanently'}
                 </Button>
               )}
             </div>

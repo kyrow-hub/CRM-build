@@ -26,6 +26,21 @@ export async function createGroupSession(input) {
   return data
 }
 
+export async function updateGroupSession(id, input) {
+  const { data, error } = await supabase.from('program_sessions').update(input).eq('id', id).select(SESSION_COLUMNS).single()
+  if (error) throw error
+  return data
+}
+
+// Deleting a session cascades to its attendance records and any risk
+// assessment/documents tied to that session, and unlinks (rather than
+// deletes) the case notes and incidents that reference it - see the FK
+// definitions in 0001/0005/0022/0023/0024 for the exact behaviour per table.
+export async function deleteGroupSession(id) {
+  const { error } = await supabase.from('program_sessions').delete().eq('id', id)
+  if (error) throw error
+}
+
 export async function recordGroupAttendance(sessionId, participants, recordedBy) {
   if (!participants.length) throw new Error('Add at least one participant.')
   const rows = participants.map((p) => ({

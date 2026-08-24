@@ -19,6 +19,18 @@ export async function createAssessment(input) {
   return data
 }
 
+export async function updateAssessment(id, input) {
+  if (!input.assessment_type) throw new Error('Assessment type is required.')
+  const { data, error } = await supabase
+    .from('client_assessments')
+    .update(input)
+    .eq('id', id)
+    .select(ASSESSMENT_COLUMNS)
+    .single()
+  if (error) throw error
+  return data
+}
+
 export async function deleteAssessment(id) {
   const { error } = await supabase.from('client_assessments').delete().eq('id', id)
   if (error) throw error

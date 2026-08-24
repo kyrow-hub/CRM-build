@@ -62,3 +62,14 @@ export async function createAttendanceRecord(input) {
   if (error) throw error
   return data
 }
+
+export async function updateAttendanceRecord(id, input) {
+  const { data, error } = await supabase.from('attendance').update(input).eq('id', id).select(ATTENDANCE_COLUMNS).single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteAttendanceRecord(id) {
+  const { error } = await supabase.from('attendance').delete().eq('id', id)
+  if (error) throw error
+}

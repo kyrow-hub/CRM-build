@@ -59,6 +59,11 @@ export async function linkSmsToClient(smsId, clientId) {
   return data
 }
 
+export async function deleteSms(smsId) {
+  const { error } = await supabase.from('client_sms').delete().eq('id', smsId)
+  if (error) throw error
+}
+
 export async function markSmsRead(smsId, read = true) {
   const { data, error } = await supabase
     .from('client_sms')

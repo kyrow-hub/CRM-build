@@ -74,6 +74,20 @@ export async function archiveClient(id) {
   return data
 }
 
+// Permanently removes the client and cascades to their case notes,
+// activities, goals, outcomes, documents, staff register, follow-ups,
+// assessments, service plan items, and Family & Contacts entries (all
+// `on delete cascade`). Referrals, meetings, good news stories, incidents,
+// SMS, and emails are unlinked (`on delete set null`) rather than deleted,
+// since those records can stand on their own. The deletion itself is
+// captured in the audit log (clients is an audited table) even though the
+// row itself is gone. Prefer archiveClient() for the normal exit workflow -
+// this is for when a record genuinely needs to not exist at all.
+export async function deleteClient(id) {
+  const { error } = await supabase.from('clients').delete().eq('id', id)
+  if (error) throw error
+}
+
 export async function countClientsWithDetails() {
   const { count, error } = await supabase
     .from('clients')

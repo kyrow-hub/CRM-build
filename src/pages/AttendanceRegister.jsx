@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, ClipboardCheck, StickyNote, Users2, ShieldAlert } from 'lucide-react'
+import { Plus, ClipboardCheck, StickyNote, Users2, ShieldAlert, Pencil, Trash2 } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import Button from '../components/ui/Button.jsx'
 import StatusPill from '../components/ui/StatusPill.jsx'
@@ -13,7 +13,7 @@ import { usePrograms } from '../hooks/usePrograms.js'
 import { createProgram } from '../services/programService.js'
 import { useAttendanceRecords } from '../hooks/useAttendanceRecords.js'
 import { useGroupSessions } from '../hooks/useGroupSessions.js'
-import { getOrCreateSession, createAttendanceRecord } from '../services/attendanceService.js'
+import { getOrCreateSession, createAttendanceRecord, updateAttendanceRecord, deleteAttendanceRecord } from '../services/attendanceService.js'
 import { createClientNote } from '../services/clientNoteService.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
@@ -50,9 +50,104 @@ const emptyProgramForm = { name: '', location: '' }
 
 const emptyNoteForm = { clientId: '', category: NOTE_CATEGORIES[0], note: '', confidential: false }
 
+function AttendanceRecordRow({ record, canEdit, canDelete, onChanged }) {
+  const toast = useToast()
+  const [editing, setEditing] = useState(false)
+  const [status, setStatus] = useState(record.attendance_status)
+  const [transportProvided, setTransportProvided] = useState(record.transport_provided)
+  const [submitting, setSubmitting] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  const clientName = record.client ? [record.client.first_name, record.client.last_name].filter(Boolean).join(' ') : '—'
+
+  const handleSave = async (e) => {
+    e.preventDefault()
+    setSubmitting(true)
+    try {
+      await updateAttendanceRecord(record.id, { attendance_status: status, transport_provided: transportProvided })
+      toast.success('Attendance record updated.')
+      setEditing(false)
+      onChanged()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Delete this attendance record for ${clientName}? This cannot be undone.`)) return
+    setDeleting(true)
+    try {
+      await deleteAttendanceRecord(record.id)
+      toast.success('Attendance record deleted.')
+      onChanged()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  if (editing) {
+    return (
+      <div style={{ padding: '14px 22px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={{ fontWeight: 600 }}>{clientName}</span>
+        <select className="input" style={{ width: 150 }} value={status} onChange={(e) => setStatus(e.target.value)}>
+          <option>Present</option>
+          <option>Absent</option>
+          <option>Late</option>
+          <option>Left Early</option>
+          <option>Excused</option>
+        </select>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13.5, color: 'var(--text)' }}>
+          <input type="checkbox" checked={transportProvided} onChange={(e) => setTransportProvided(e.target.checked)} />
+          Transport provided
+        </label>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Button type="button" variant="secondary" onClick={() => setEditing(false)}>
+            Cancel
+          </Button>
+          <Button type="button" onClick={handleSave} disabled={submitting}>
+            {submitting ? 'Saving...' : 'Save'}
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="data-row attendance-row">
+      <div className="client-identity">
+        <div className={`client-avatar avatar--${avatarTone(clientName)}`}>{initials(clientName)}</div>
+        <span>{clientName}</span>
+      </div>
+      <span className="data-cell-muted">{record.session?.program?.name ?? '—'}</span>
+      <span className="data-cell-muted">{record.session?.session_date ?? '—'}</span>
+      <span className="data-cell-muted">{record.transport_provided ? 'Yes' : 'No'}</span>
+      <StatusPill tone={ATTENDANCE_STATUS_TONE[record.attendance_status] ?? 'neutral'}>{record.attendance_status}</StatusPill>
+      {(canEdit || canDelete) && (
+        <div style={{ display: 'flex', gap: 4 }}>
+          {canEdit && (
+            <button type="button" className="icon-button" title="Edit" onClick={() => setEditing(true)}>
+              <Pencil strokeWidth={2} />
+            </button>
+          )}
+          {canDelete && (
+            <button type="button" className="icon-button" title="Delete" disabled={deleting} onClick={handleDelete}>
+              <Trash2 strokeWidth={2} />
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function AttendanceRegister() {
   const { user, profile } = useAuth()
   const isAdminManager = profile?.role === 'administrator' || profile?.role === 'manager'
+  const canEditRecords = isAdminManager || profile?.role === 'case_worker' || profile?.role === 'program_worker'
   const toast = useToast()
   const [activeTab, setActiveTab] = useState('register')
   const [clients, setClients] = useState([])
@@ -249,7 +344,15 @@ export default function AttendanceRegister() {
           )}
 
           <div style={{ marginBottom: 24 }}>
-            <GroupSessionsList sessions={groupSessions} loading={groupSessionsLoading} error={groupSessionsError} />
+            <GroupSessionsList
+              sessions={groupSessions}
+              loading={groupSessionsLoading}
+              error={groupSessionsError}
+              workers={workers}
+              canEdit={canEditRecords}
+              canDelete={isAdminManager}
+              onChanged={handleGroupSessionSaved}
+            />
           </div>
 
           <div className="section-head">
@@ -395,24 +498,11 @@ export default function AttendanceRegister() {
                   <span>Session Date</span>
                   <span>Transport</span>
                   <span>Status</span>
+                  <span></span>
                 </div>
-                {records.map((r) => {
-                  const clientName = r.client ? [r.client.first_name, r.client.last_name].filter(Boolean).join(' ') : '—'
-                  return (
-                    <div className="data-row attendance-row" key={r.id}>
-                      <div className="client-identity">
-                        <div className={`client-avatar avatar--${avatarTone(clientName)}`}>{initials(clientName)}</div>
-                        <span>{clientName}</span>
-                      </div>
-                      <span className="data-cell-muted">{r.session?.program?.name ?? '—'}</span>
-                      <span className="data-cell-muted">{r.session?.session_date ?? '—'}</span>
-                      <span className="data-cell-muted">{r.transport_provided ? 'Yes' : 'No'}</span>
-                      <StatusPill tone={ATTENDANCE_STATUS_TONE[r.attendance_status] ?? 'neutral'}>
-                        {r.attendance_status}
-                      </StatusPill>
-                    </div>
-                  )
-                })}
+                {records.map((r) => (
+                  <AttendanceRecordRow key={r.id} record={r} canEdit={canEditRecords} canDelete={isAdminManager} onChanged={refetchRecords} />
+                ))}
               </div>
             )}
           </Card>

@@ -42,6 +42,11 @@ export async function linkEmailToClient(emailId, clientId) {
   return data
 }
 
+export async function deleteEmail(emailId) {
+  const { error } = await supabase.from('client_emails').delete().eq('id', emailId)
+  if (error) throw error
+}
+
 export async function markEmailRead(emailId, read = true) {
   const { data, error } = await supabase
     .from('client_emails')

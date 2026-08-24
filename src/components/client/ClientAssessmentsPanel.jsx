@@ -1,14 +1,19 @@
 import { useEffect, useState } from 'react'
-import { Plus, ClipboardCheck, ChevronDown, ChevronUp, X, CalendarClock } from 'lucide-react'
+import { Plus, ClipboardCheck, ChevronDown, ChevronUp, X, Pencil, Trash2, CalendarClock } from 'lucide-react'
 import Card from '../ui/Card.jsx'
 import Button from '../ui/Button.jsx'
 import EmptyState from '../ui/EmptyState.jsx'
 import StatusPill from '../ui/StatusPill.jsx'
 import AssessmentForm from './AssessmentForm.jsx'
 import { useClientAssessments } from '../../hooks/useClientAssessments.js'
-import { createAssessment, deleteAssessment } from '../../services/assessmentService.js'
+import { createAssessment, updateAssessment, deleteAssessment } from '../../services/assessmentService.js'
 import { useServicePlanItems } from '../../hooks/useServicePlanItems.js'
-import { createServicePlanItem, updateServicePlanItemStatus } from '../../services/servicePlanService.js'
+import {
+  createServicePlanItem,
+  updateServicePlanItem,
+  updateServicePlanItemStatus,
+  deleteServicePlanItem,
+} from '../../services/servicePlanService.js'
 import { listAssignableWorkers, updateNextReviewDate } from '../../services/clientService.js'
 import { SEWB_DOMAINS, RISK_DOMAINS, NEEDS_DOMAINS, SERVICE_TYPES } from '../../data/assessmentOptions.js'
 import { useAuth } from '../../context/AuthContext.jsx'
@@ -25,13 +30,30 @@ function labelFor(domains, key) {
   return domains.find((d) => d.key === key)?.label ?? key
 }
 
-function AssessmentCard({ assessment, canDelete, onDeleted }) {
+function AssessmentCard({ assessment, canEdit, canDelete, workers, currentUserId, onUpdated, onDeleted }) {
   const toast = useToast()
   const [expanded, setExpanded] = useState(false)
+  const [editing, setEditing] = useState(false)
   const [removing, setRemoving] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const assessorName = assessment.assessor
     ? [assessment.assessor.first_name, assessment.assessor.last_name].filter(Boolean).join(' ')
     : null
+
+  const handleUpdate = async (payload) => {
+    setSubmitting(true)
+    try {
+      const { next_review_date, ...assessmentPayload } = payload
+      await updateAssessment(assessment.id, assessmentPayload)
+      toast.success('Assessment updated.')
+      setEditing(false)
+      onUpdated()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   const handleRemove = async () => {
     if (!window.confirm(`Delete this ${assessment.assessment_type} assessment from ${assessment.assessment_date}? This cannot be undone.`)) return
@@ -50,6 +72,20 @@ function AssessmentCard({ assessment, canDelete, onDeleted }) {
   const riskEntries = Object.entries(assessment.risk_ratings || {})
   const needsEntries = Object.entries(assessment.needs_ratings || {})
   const sewbEntries = Object.entries(assessment.sewb_scores || {})
+
+  if (editing) {
+    return (
+      <AssessmentForm
+        clientId={assessment.client_id}
+        workers={workers}
+        currentUserId={currentUserId}
+        initialValues={assessment}
+        onSave={handleUpdate}
+        onCancel={() => setEditing(false)}
+        submitting={submitting}
+      />
+    )
+  }
 
   return (
     <div className="note-item">
@@ -140,11 +176,21 @@ function AssessmentCard({ assessment, canDelete, onDeleted }) {
             <div className="data-cell-muted">Referred to: {assessment.referral_to_ongoing_supports}</div>
           )}
           {assessment.staff_summary && <div className="note-item-text">{assessment.staff_summary}</div>}
-          {canDelete && (
-            <button type="button" className="link-button" style={{ color: '#f87171', alignSelf: 'flex-start' }} onClick={handleRemove} disabled={removing}>
-              <X strokeWidth={2} style={{ width: 13, height: 13, marginRight: 4, verticalAlign: 'text-bottom' }} />
-              {removing ? 'Deleting...' : 'Delete Assessment'}
-            </button>
+          {(canEdit || canDelete) && (
+            <div style={{ display: 'flex', gap: 10 }}>
+              {canEdit && (
+                <button type="button" className="link-button" onClick={() => setEditing(true)}>
+                  <Pencil strokeWidth={2} style={{ width: 13, height: 13, marginRight: 4, verticalAlign: 'text-bottom' }} />
+                  Edit
+                </button>
+              )}
+              {canDelete && (
+                <button type="button" className="link-button" style={{ color: '#f87171' }} onClick={handleRemove} disabled={removing}>
+                  <X strokeWidth={2} style={{ width: 13, height: 13, marginRight: 4, verticalAlign: 'text-bottom' }} />
+                  {removing ? 'Deleting...' : 'Delete Assessment'}
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -152,13 +198,177 @@ function AssessmentCard({ assessment, canDelete, onDeleted }) {
   )
 }
 
+function servicePlanFormFromItem(item) {
+  return {
+    service_type: item.service_type,
+    frequency: item.frequency || '',
+    responsible_worker: item.responsible_worker || '',
+    start_date: item.start_date,
+    review_date: item.review_date || '',
+  }
+}
+
+function ServicePlanItemRow({ item, workers, canEdit, canDelete, onChanged }) {
+  const toast = useToast()
+  const [editing, setEditing] = useState(false)
+  const [form, setForm] = useState(() => servicePlanFormFromItem(item))
+  const [submitting, setSubmitting] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  const workerName = item.worker ? [item.worker.first_name, item.worker.last_name].filter(Boolean).join(' ') : 'Unassigned'
+
+  const handleEnd = async () => {
+    try {
+      await updateServicePlanItemStatus(item.id, 'Ended')
+      toast.success('Service marked ended.')
+      onChanged()
+    } catch (err) {
+      toast.error(err.message)
+    }
+  }
+
+  const handleSave = async (e) => {
+    e.preventDefault()
+    setSubmitting(true)
+    try {
+      await updateServicePlanItem(item.id, {
+        service_type: form.service_type,
+        frequency: form.frequency.trim() || null,
+        responsible_worker: form.responsible_worker || null,
+        start_date: form.start_date,
+        review_date: form.review_date || null,
+      })
+      toast.success('Service plan item updated.')
+      setEditing(false)
+      onChanged()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Remove ${item.service_type} from this client's service plan? This cannot be undone.`)) return
+    setDeleting(true)
+    try {
+      await deleteServicePlanItem(item.id)
+      toast.success('Service plan item deleted.')
+      onChanged()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  if (editing) {
+    return (
+      <div className="note-item">
+        <form onSubmit={handleSave}>
+          <div className="form-grid">
+            <div>
+              <label className="form-label" htmlFor={`sp-type-${item.id}`}>
+                Service
+              </label>
+              <select id={`sp-type-${item.id}`} className="input" value={form.service_type} onChange={(e) => setForm((f) => ({ ...f, service_type: e.target.value }))}>
+                {SERVICE_TYPES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="form-label" htmlFor={`sp-frequency-${item.id}`}>
+                Frequency
+              </label>
+              <input id={`sp-frequency-${item.id}`} className="input" placeholder="e.g. Weekly" value={form.frequency} onChange={(e) => setForm((f) => ({ ...f, frequency: e.target.value }))} />
+            </div>
+            <div>
+              <label className="form-label" htmlFor={`sp-worker-${item.id}`}>
+                Responsible Worker
+              </label>
+              <select id={`sp-worker-${item.id}`} className="input" value={form.responsible_worker} onChange={(e) => setForm((f) => ({ ...f, responsible_worker: e.target.value }))}>
+                <option value="">Unassigned</option>
+                {workers.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {[w.first_name, w.last_name].filter(Boolean).join(' ') || w.id}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="form-label" htmlFor={`sp-start-${item.id}`}>
+                Start Date
+              </label>
+              <input id={`sp-start-${item.id}`} type="date" className="input" value={form.start_date} onChange={(e) => setForm((f) => ({ ...f, start_date: e.target.value }))} required />
+            </div>
+            <div>
+              <label className="form-label" htmlFor={`sp-review-${item.id}`}>
+                Review Date
+              </label>
+              <input id={`sp-review-${item.id}`} type="date" className="input" value={form.review_date} onChange={(e) => setForm((f) => ({ ...f, review_date: e.target.value }))} />
+            </div>
+          </div>
+          <div className="form-actions">
+            <Button type="button" variant="secondary" onClick={() => setEditing(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? 'Saving...' : 'Save'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    )
+  }
+
+  return (
+    <div className="note-item">
+      <div className="note-item-meta">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontWeight: 600 }}>{item.service_type}</span>
+          <StatusPill tone={item.status === 'Active' ? 'success' : 'neutral'}>{item.status}</StatusPill>
+        </div>
+        <span>{item.frequency || 'No set frequency'}</span>
+      </div>
+      <div className="data-cell-muted">
+        {workerName} · Started {item.start_date}{item.review_date ? ` · Review ${item.review_date}` : ''}
+      </div>
+      <div style={{ display: 'flex', gap: 10, marginTop: 6, flexWrap: 'wrap' }}>
+        {item.status === 'Active' && (
+          <button type="button" className="link-button" onClick={handleEnd}>
+            Mark Ended
+          </button>
+        )}
+        {canEdit && (
+          <button type="button" className="link-button" onClick={() => setEditing(true)}>
+            <Pencil strokeWidth={2} style={{ width: 13, height: 13, marginRight: 4, verticalAlign: 'text-bottom' }} />
+            Edit
+          </button>
+        )}
+        {canDelete && (
+          <button type="button" className="link-button" style={{ color: '#f87171' }} onClick={handleDelete} disabled={deleting}>
+            <Trash2 strokeWidth={2} style={{ width: 13, height: 13, marginRight: 4, verticalAlign: 'text-bottom' }} />
+            {deleting ? 'Deleting...' : 'Delete'}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function ServicePlanSection({ clientId, workers }) {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const toast = useToast()
   const { items, loading, refetch } = useServicePlanItems(clientId)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyServiceForm)
   const [submitting, setSubmitting] = useState(false)
+
+  const canEdit = profile?.role === 'administrator' || profile?.role === 'manager' || profile?.role === 'case_worker' || profile?.role === 'program_worker'
+  const canDelete = profile?.role === 'administrator' || profile?.role === 'manager'
 
   const handleAdd = async (e) => {
     e.preventDefault()
@@ -181,16 +391,6 @@ function ServicePlanSection({ clientId, workers }) {
       toast.error(err.message)
     } finally {
       setSubmitting(false)
-    }
-  }
-
-  const handleEnd = async (item) => {
-    try {
-      await updateServicePlanItemStatus(item.id, 'Ended')
-      toast.success('Service marked ended.')
-      refetch()
-    } catch (err) {
-      toast.error(err.message)
     }
   }
 
@@ -274,28 +474,9 @@ function ServicePlanSection({ clientId, workers }) {
           <EmptyState icon={ClipboardCheck} title="No services planned yet" text="Services agreed for this client (mentoring, case management, camps, etc.) will appear here." />
         ) : (
           <div className="note-list">
-            {items.map((item) => {
-              const workerName = item.worker ? [item.worker.first_name, item.worker.last_name].filter(Boolean).join(' ') : 'Unassigned'
-              return (
-                <div className="note-item" key={item.id}>
-                  <div className="note-item-meta">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontWeight: 600 }}>{item.service_type}</span>
-                      <StatusPill tone={item.status === 'Active' ? 'success' : 'neutral'}>{item.status}</StatusPill>
-                    </div>
-                    <span>{item.frequency || 'No set frequency'}</span>
-                  </div>
-                  <div className="data-cell-muted">
-                    {workerName} · Started {item.start_date}{item.review_date ? ` · Review ${item.review_date}` : ''}
-                  </div>
-                  {item.status === 'Active' && (
-                    <button type="button" className="link-button" style={{ marginTop: 6 }} onClick={() => handleEnd(item)}>
-                      Mark Ended
-                    </button>
-                  )}
-                </div>
-              )
-            })}
+            {items.map((item) => (
+              <ServicePlanItemRow key={item.id} item={item} workers={workers} canEdit={canEdit} canDelete={canDelete} onChanged={refetch} />
+            ))}
           </div>
         )}
       </Card>
@@ -386,7 +567,16 @@ export default function ClientAssessmentsPanel({ clientId, clientName, nextRevie
         ) : (
           <div className="note-list">
             {assessments.map((a) => (
-              <AssessmentCard key={a.id} assessment={a} canDelete={canDelete} onDeleted={refetch} />
+              <AssessmentCard
+                key={a.id}
+                assessment={a}
+                canEdit={canDelete || a.created_by === user?.id}
+                canDelete={canDelete}
+                workers={workers}
+                currentUserId={user?.id}
+                onUpdated={refetch}
+                onDeleted={refetch}
+              />
             ))}
           </div>
         )}

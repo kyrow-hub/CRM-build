@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { MessageSquare, MessageSquareText, Plus, Send, Users, ArrowUpRight, ArrowDownLeft } from 'lucide-react'
+import { MessageSquare, MessageSquareText, Plus, Send, Users, ArrowUpRight, ArrowDownLeft, Trash2 } from 'lucide-react'
 import Card from '../components/ui/Card.jsx'
 import Button from '../components/ui/Button.jsx'
 import StatusPill from '../components/ui/StatusPill.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
 import { useAllSms } from '../hooks/useAllSms.js'
-import { sendSms, sendBulkSms, linkSmsToClient, markSmsRead } from '../services/smsService.js'
+import { sendSms, sendBulkSms, linkSmsToClient, markSmsRead, deleteSms } from '../services/smsService.js'
 import { listClients } from '../services/clientService.js'
 import { listContactableRelationships } from '../services/relationshipService.js'
 import { listPrograms } from '../services/programService.js'
 import { listProgramParticipants } from '../services/programParticipantService.js'
+import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 
 const STATUS_TONE = { sent: 'success', failed: 'danger', received: 'info' }
@@ -30,12 +31,13 @@ function clientName(client) {
   return client ? [client.first_name, client.last_name].filter(Boolean).join(' ') : null
 }
 
-function SmsItem({ sms, clients, onUpdated }) {
+function SmsItem({ sms, clients, canDelete, onUpdated, onDeleted }) {
   const toast = useToast()
   const [linking, setLinking] = useState(false)
   const [selectedClientId, setSelectedClientId] = useState('')
   const [savingLink, setSavingLink] = useState(false)
   const [savingRead, setSavingRead] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const name = clientName(sms.client)
   const contactName = sms.relationship ? `${sms.relationship.full_name} (${sms.relationship.relationship_type})` : null
@@ -65,6 +67,20 @@ function SmsItem({ sms, clients, onUpdated }) {
       toast.error(err.message)
     } finally {
       setSavingLink(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!window.confirm('Delete this SMS? This cannot be undone.')) return
+    setDeleting(true)
+    try {
+      await deleteSms(sms.id)
+      toast.success('SMS deleted.')
+      onDeleted()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -102,6 +118,12 @@ function SmsItem({ sms, clients, onUpdated }) {
         {isInbound && !sms.client_id && (
           <button type="button" className="link-button" onClick={() => setLinking((v) => !v)}>
             {linking ? 'Cancel' : 'Link to client'}
+          </button>
+        )}
+        {canDelete && (
+          <button type="button" className="link-button" style={{ color: '#f87171' }} onClick={handleDelete} disabled={deleting}>
+            <Trash2 strokeWidth={2} style={{ width: 13, height: 13, marginRight: 4, verticalAlign: 'text-bottom' }} />
+            {deleting ? 'Deleting...' : 'Delete'}
           </button>
         )}
       </div>
@@ -155,6 +177,8 @@ function RawPayload({ payload }) {
 }
 
 export default function Sms() {
+  const { profile } = useAuth()
+  const isAdminManager = profile?.role === 'administrator' || profile?.role === 'manager'
   const toast = useToast()
   const location = useLocation()
   const navigate = useNavigate()
@@ -606,7 +630,7 @@ export default function Sms() {
         ) : (
           <div className="note-list">
             {filteredSms.map((s) => (
-              <SmsItem key={s.id} sms={s} clients={clients} onUpdated={refetch} />
+              <SmsItem key={s.id} sms={s} clients={clients} canDelete={isAdminManager} onUpdated={refetch} onDeleted={refetch} />
             ))}
           </div>
         )}
